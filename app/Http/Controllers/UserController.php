@@ -12,6 +12,7 @@ use App\Models\Pengajuan;
 use App\Models\Proxy;
 use App\Models\Pembubuhan; 
 use App\Models\LuarDaerah;
+use App\Models\UpdateData; // Tambahkan Model Baru
 use App\Models\Kecamatan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -38,6 +39,7 @@ class UserController extends Controller
         $proxies = Proxy::where('user_id', $userId)->latest()->get();
         $pembubuhans = Pembubuhan::where('user_id', $userId)->latest()->get();
         $luardaerahs = LuarDaerah::where('user_id', $userId)->latest()->get(); 
+        $updatedatas = UpdateData::where('user_id', $userId)->latest()->get(); // Ambil data Update Data
 
         $counts = [
             'trouble' => $troubles->count(),
@@ -46,11 +48,11 @@ class UserController extends Controller
             'proxy' => $proxies->count(),
             'pembubuhan' => $pembubuhans->count(),
             'luardaerah' => $luardaerahs->count(),
+            'updatedata' => $updatedatas->count(), // Tambahkan hitungan
         ];
 
         $allNotifications = collect();
 
-        // 1. DATA PC / TROUBLE
         foreach ($troubles as $t) {
             $allNotifications->push((object) [
                 'id' => $t->id,
@@ -58,10 +60,8 @@ class UserController extends Controller
                 'kategori' => 'PC - ' . strtoupper($t->kategori ?? 'GANGGUAN SISTEM'),
                 'kategori_asli' => $t->kategori, 
                 'jenis_layanan' => 'KENDALA PC',
-                'jenis_permasalahan' => $t->kategori,
                 'jenis_dokumen' => null,
                 'pesan' => $t->deskripsi,
-                'deskripsi' => $t->deskripsi,
                 'tanggapan_admin' => $t->tanggapan_admin,
                 'is_rejected' => (bool)($t->is_rejected ?? false),
                 'created_at' => $t->created_at,
@@ -71,19 +71,16 @@ class UserController extends Controller
             ]);
         }
 
-        // 2. DATA NIK / AKTIVASI
         foreach ($aktivasis as $a) {
             $prefix = strtoupper($a->jenis_layanan ?? 'AKTIVASI');
             $allNotifications->push((object) [
                 'id' => $a->id,
                 'group_key' => 'NIK_CARD',
                 'kategori' => 'NIK - ' . $prefix,
-                'kategori_asli' => $prefix,
-                'jenis_layanan' => $prefix,
-                'jenis_permasalahan' => $prefix,
+                'kategori_asli' => null,
+                'jenis_layanan' => strtoupper($a->jenis_layanan),
                 'jenis_dokumen' => null,
                 'pesan' => ($a->alasan ?? "Permintaan " . $prefix . " NIK: " . $a->nik_aktivasi),
-                'deskripsi' => ($a->alasan ?? "Permintaan " . $prefix . " NIK: " . $a->nik_aktivasi),
                 'tanggapan_admin' => $a->tanggapan_admin,
                 'is_rejected' => (bool)($a->is_rejected ?? false),
                 'created_at' => $a->created_at,
@@ -93,23 +90,16 @@ class UserController extends Controller
             ]);
         }
 
-        // 3. DATA SIAK & UPDATE DATA (Pengajuan)
         foreach ($pengajuans as $p) {
-            $kategoriTampil = strtoupper(!empty($p->kategori) ? $p->kategori : $p->jenis_registrasi);
-            
-            // Logika penentuan Group Key agar 'UPDATE DATA' terpisah secara visual di filter Blade
-            $groupKey = str_contains($kategoriTampil, 'UPDATE') ? 'UPDATE_CARD' : 'SIAK_CARD';
-
+            $kategoriTampil = !empty($p->kategori) ? $p->kategori : $p->jenis_registrasi;
             $allNotifications->push((object) [
                 'id' => $p->id,
-                'group_key' => $groupKey,
-                'kategori' => $kategoriTampil,
-                'kategori_asli' => $kategoriTampil,
-                'jenis_layanan' => $kategoriTampil, 
-                'jenis_permasalahan' => $kategoriTampil,
+                'group_key' => 'SIAK_CARD',
+                'kategori' => 'SIAK - ' . strtoupper($kategoriTampil),
+                'kategori_asli' => strtoupper($kategoriTampil),
+                'jenis_layanan' => 'SIAK', 
                 'jenis_dokumen' => null,
-                'pesan' => $p->deskripsi ?? "Laporan Kendala",
-                'deskripsi' => $p->deskripsi ?? "Laporan Kendala",
+                'pesan' => $p->deskripsi ?? "Laporan Kendala SIAK",
                 'tanggapan_admin' => $p->tanggapan_admin,
                 'is_rejected' => (bool)($p->is_rejected ?? false),
                 'created_at' => $p->created_at,
@@ -119,7 +109,6 @@ class UserController extends Controller
             ]);
         }
 
-        // 4. DATA PROXY
         foreach ($proxies as $pr) {
             $allNotifications->push((object) [
                 'id' => $pr->id,
@@ -127,10 +116,8 @@ class UserController extends Controller
                 'kategori' => 'PROXY - KENDALA IP',
                 'kategori_asli' => 'KENDALA JARINGAN',
                 'jenis_layanan' => 'PROXY', 
-                'jenis_permasalahan' => 'JARINGAN',
                 'jenis_dokumen' => null,
                 'pesan' => $pr->deskripsi ?? $pr->ip_detail, 
-                'deskripsi' => $pr->deskripsi ?? $pr->ip_detail,
                 'tanggapan_admin' => $pr->tanggapan_admin,
                 'is_rejected' => (bool)($pr->is_rejected ?? false),
                 'created_at' => $pr->created_at,
@@ -140,7 +127,6 @@ class UserController extends Controller
             ]);
         }
 
-        // 5. DATA TTE
         foreach ($pembubuhans as $pb) {
             $allNotifications->push((object) [
                 'id' => $pb->id,
@@ -148,10 +134,8 @@ class UserController extends Controller
                 'kategori' => 'PEMBUBUHAN TTE',
                 'kategori_asli' => 'TTE',
                 'jenis_layanan' => 'TTE', 
-                'jenis_permasalahan' => 'TTE',
                 'jenis_dokumen' => strtoupper($pb->jenis_dokumen ?? 'PENGAJUAN TTE'),
                 'pesan' => "TTE: No. Dokumen: " . ($pb->no_akte ?? '-') . " | Jenis: " . strtoupper($pb->jenis_dokumen), 
-                'deskripsi' => "TTE: No. Dokumen: " . ($pb->no_akte ?? '-') . " | Jenis: " . strtoupper($pb->jenis_dokumen),
                 'tanggapan_admin' => $pb->tanggapan_admin,
                 'is_rejected' => (bool)($pb->is_rejected ?? false),
                 'created_at' => $pb->created_at,
@@ -161,7 +145,6 @@ class UserController extends Controller
             ]);
         }
 
-        // 6. DATA LUAR DAERAH
         foreach ($luardaerahs as $ld) {
             $allNotifications->push((object) [
                 'id' => $ld->id,
@@ -169,16 +152,33 @@ class UserController extends Controller
                 'kategori' => 'LUAR DAERAH',
                 'kategori_asli' => 'LUAR DAERAH',
                 'jenis_layanan' => 'LUAR DAERAH', 
-                'jenis_permasalahan' => 'LUAR DAERAH',
                 'jenis_dokumen' => strtoupper($ld->jenis_dokumen),
                 'pesan' => "LUAR DAERAH: NIK Target: " . $ld->nik_luar_daerah . " | Layanan: " . strtoupper($ld->jenis_dokumen),
-                'deskripsi' => "LUAR DAERAH: NIK Target: " . $ld->nik_luar_daerah . " | Layanan: " . strtoupper($ld->jenis_dokumen),
                 'tanggapan_admin' => $ld->tanggapan_admin,
                 'is_rejected' => (bool)($ld->is_rejected ?? false),
                 'created_at' => $ld->created_at,
                 'updated_at' => $ld->updated_at,
                 'type' => 'luardaerah',
                 'status' => $ld->status ?? 'pending'
+            ]);
+        }
+
+        // TAMBAHAN: Loop Notifikasi untuk Update Data
+        foreach ($updatedatas as $ud) {
+            $allNotifications->push((object) [
+                'id' => $ud->id,
+                'group_key' => 'UPDATE_CARD', // Key untuk membedakan kartu di Blade
+                'kategori' => 'UPDATE - ' . strtoupper($ud->jenis_layanan),
+                'kategori_asli' => strtoupper($ud->jenis_layanan),
+                'jenis_layanan' => 'UPDATE DATA', 
+                'jenis_dokumen' => null,
+                'pesan' => $ud->deskripsi,
+                'tanggapan_admin' => $ud->tanggapan_admin,
+                'is_rejected' => (bool)($ud->status === 'rejected'),
+                'created_at' => $ud->created_at,
+                'updated_at' => $ud->updated_at,
+                'type' => 'updatedata',
+                'status' => $ud->status
             ]);
         }
 
@@ -194,7 +194,8 @@ class UserController extends Controller
             'pengajuans' => $pengajuans,
             'proxies' => $proxies,
             'pembubuhans' => $pembubuhans,
-            'luardaerahs' => $luardaerahs 
+            'luardaerahs' => $luardaerahs,
+            'updatedatas' => $updatedatas // Tambahkan variabel ini
         ]);
     }
 
@@ -262,7 +263,7 @@ class UserController extends Controller
             'status' => 'Pending'
         ]);
 
-        return back()->with('status', 'Laporan kendala berhasil dikirim!');
+        return back()->with('status', 'Laporan kendala SIAK berhasil dikirim!');
     }
 
     /**
@@ -366,6 +367,48 @@ class UserController extends Controller
         ]);
 
         return back()->with('status', 'Laporan Luar Daerah berhasil dikirim!');
+    }
+
+    /**
+     * 7. FITUR UPDATE DATA
+     * Menangani permohonan perubahan elemen data kependudukan.
+     */
+    public function storeUpdateData(Request $request)
+    {
+        // Gunakan nama input sesuai yang dikirim dari FORM (kategori_update, alasan_update, lampiran_update)
+        $request->validate([
+            'nik_pemohon'     => 'required|numeric|digits:16',
+            'kategori_update' => 'required|string',
+            'alasan_update'   => 'required|string',
+            'lampiran_update' => 'required|array|min:1',
+            'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:5120'
+        ], [
+            // Pesan error kustom untuk memastikan kita tahu field mana yang bermasalah
+            'kategori_update.required' => 'Jenis layanan update data harus diisi.',
+            'alasan_update.required'   => 'Deskripsi/Alasan harus diisi.',
+            'lampiran_update.required' => 'Lampiran dokumen harus diunggah.'
+        ]);
+
+        $filePaths = [];
+        if ($request->hasFile('lampiran_update')) {
+            foreach ($request->file('lampiran_update') as $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('update_data', 'public');
+                    $filePaths[] = $path;
+                }
+            }
+        }
+
+        UpdateData::create([
+            'user_id'       => Auth::id(),
+            'nik_pemohon'   => $request->nik_pemohon,
+            'jenis_layanan' => $request->kategori_update, 
+            'deskripsi'     => $request->alasan_update,   
+            'lampiran'      => $filePaths, 
+            'status'        => 'pending',
+        ]);
+
+        return back()->with('status', 'Permohonan update data kependudukan berhasil dikirim!');
     }
 
     /**
