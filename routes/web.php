@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\AnnouncementController; 
 use App\Http\Controllers\PembubuhanController; // Tambahkan ini
 use App\Http\Controllers\LuarDaerahController; // Tambahkan ini
+use App\Http\Controllers\UpdateDataController; // Tambahkan ini untuk fitur baru
 
 /*
 |--------------------------------------------------------------------------
@@ -110,6 +111,9 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
 
         // --- FITUR LUAR DAERAH ---
         Route::post('/user/luar-daerah/store', [LuarDaerahController::class, 'store'])->name('user.luardaerah.store');
+
+        // --- FITUR UPDATE DATA (PENGAJUAN BARU) ---
+        Route::post('/user/update-data/store', [UpdateDataController::class, 'store'])->name('update-data.store');
     });
 
     // ==========================================

@@ -139,6 +139,12 @@
                         class="w-full flex items-center space-x-3 p-4 rounded-2xl transition-all text-sm font-bold text-left">
                         <i class="fas fa-id-card w-5 text-center"></i> <span>Aktivasi NIK</span>
                     </button>
+                    <button @click="tab = 'update_data'; mobileMenu = false"
+                        :class="tab === 'update_data' ? 'bg-orange-600 text-white shadow-lg' : 'hover:bg-slate-800'"
+                        class="w-full flex items-center space-x-3 p-4 rounded-2xl transition-all text-sm font-bold text-left">
+                        <i class="fas fa-user-edit w-5 text-center"></i>
+                        <span>Update Data</span>
+                    </button>
                 </div>
 
                 <div class="pt-6">
@@ -173,7 +179,7 @@
                         let count = 0;
                         @foreach($allNotifications as $n)
                             @php 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            $nId = $n->id ?? ($n->_id ?? null);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            $nId = $n->id ?? ($n->_id ?? null);
                                 $tanggapanAdmin = $n->tanggapan_admin ?? ($n->tanggapan ?? null);
                             @endphp
                             @if(!empty($tanggapanAdmin) && $nId)
@@ -350,7 +356,7 @@
                         </div>
                     </div>
 
-                   <div class="space-y-4">
+                    <div class="space-y-4">
     <div class="flex items-center justify-between">
         <h2 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">
             Monitor Layanan & Riwayat
@@ -360,6 +366,9 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         @php
+            // Pastikan $allNotifications tersedia, jika dari Controller pastikan variabel ini dikirim
+            $notifications = collect($allNotifications ?? []);
+
             $targetKategori = [
                 'NIK' => [
                     'label' => 'Aktivasi NIK',
@@ -373,7 +382,14 @@
                     'icon' => 'fa-database',
                     'color' => 'text-purple-600',
                     'bg' => 'bg-purple-50',
-                    'keywords' => ['SIAK', 'DOKUMEN', 'REGISTRASI', 'LOGIN', 'ERROR', 'UPDATE']
+                    'keywords' => ['SIAK', 'LOGIN SIAK', 'ERROR SIAK', 'DATABASE SIAK']
+                ],
+                'UPDATE' => [
+                    'label' => 'Update Data',
+                    'icon' => 'fa-user-edit',
+                    'color' => 'text-cyan-600',
+                    'bg' => 'bg-cyan-50',
+                    'keywords' => ['UPDATE DATA', 'PERUBAHAN DATA', 'ELEMEN DATA', 'GANTI DATA']
                 ],
                 'PC' => [
                     'label' => 'Aktivitas Trouble',
@@ -394,19 +410,20 @@
                     'icon' => 'fa-file-signature',
                     'color' => 'text-rose-600',
                     'bg' => 'bg-rose-50',
-                    'keywords' => ['AKTA', 'MATI', 'LAHIR', 'BUBUH', 'SURAT', 'TTE', 'PEMBUBUHAN']
+                    'keywords' => ['AKTA', 'MATI', 'LAHIR', 'BUBUH', 'TTE', 'PEMBUBUHAN']
                 ],
                 'LUAR' => [
                     'label' => 'Laporan Luar Daerah',
                     'icon' => 'fa-map-marked-alt',
                     'color' => 'text-blue-600',
                     'bg' => 'bg-blue-50',
-                    'keywords' => ['LUAR', 'DAERAH', 'PINDAH', 'TARGET', 'KONSOLIDASI', 'REKAM', 'CETAK']
+                    'keywords' => ['LUAR', 'DAERAH', 'PINDAH', 'KONSOLIDASI', 'REKAM', 'CETAK']
                 ],
             ];
 
             if (!function_exists('cleanForJs')) {
-                function cleanForJs($text) {
+                function cleanForJs($text)
+                {
                     if (empty($text)) return '';
                     $text = str_replace(["\r", "\n"], ' ', $text);
                     return htmlspecialchars(addslashes(trim($text)), ENT_QUOTES, 'UTF-8');
@@ -416,60 +433,68 @@
 
         @foreach($targetKategori as $key => $style)
             @php
-                $riwayatKategori = collect($allNotifications ?? [])->filter(function ($item) use ($key, $style) {
+                $riwayatKategori = $notifications->filter(function ($item) use ($key, $style) {
                     $item = (object) $item;
-                    // Pastikan pencarian Luar Daerah lebih sensitif
+                    
+                    // Gabungkan semua field yang mungkin berisi kata kunci
                     $searchableText = strtoupper(
                         ($item->jenis_registrasi ?? '') . ' ' .
                         ($item->kategori ?? '') . ' ' .
                         ($item->jenis_permasalahan ?? '') . ' ' .
+                        ($item->jenis_layanan ?? '') . ' ' .
                         ($item->jenis_dokumen ?? '') . ' ' .
-                        ($item->deskripsi ?? '')
+                        ($item->deskripsi ?? '') . ' ' .
+                        ($item->pesan ?? '') . ' ' .
+                        ($item->keterangan ?? '')
                     );
 
-                    if (str_contains($searchableText, strtoupper($key))) return true;
                     foreach ($style['keywords'] as $word) {
-                        if (str_contains($searchableText, strtoupper($word))) return true;
+                        if (str_contains($searchableText, strtoupper($word))) {
+                            // Proteksi agar 'UPDATE DATA' tidak masuk ke kategori 'DOKUMEN/SIAK'
+                            if ($key === 'DOKUMEN' && str_contains($searchableText, 'UPDATE DATA')) {
+                                return false;
+                            }
+                            return true;
+                        }
                     }
                     return false;
                 })->sortByDesc(function ($item) {
                     $item = (object) $item;
-                    return \Carbon\Carbon::parse($item->created_at ?? $item->tanggal ?? 0)->timestamp;
+                    return \Carbon\Carbon::parse($item->created_at ?? $item->tanggal ?? now())->timestamp;
                 });
 
                 $notif = $riwayatKategori->first() ? (object) $riwayatKategori->first() : null;
-                
-                // Khusus Luar Daerah: Paksa Jenis Dokumen muncul jika null
+
                 $dokumenDisplay = '-';
                 if ($notif) {
-                    $dokumenDisplay = $notif->jenis_dokumen ?? $notif->jenis_permasalahan ?? $notif->keterangan ?? '-';
+                    $dokumenDisplay = $notif->jenis_dokumen ?? $notif->jenis_permasalahan ?? $notif->keterangan ?? $notif->jenis_layanan ?? '-';
                 }
 
-                $tanggapanRaw = $notif ? ($notif->tanggapan_admin ?? ($notif->tanggapan ?? null)) : null;
+                $tanggapanRaw = $notif ? ($notif->tanggapan_admin ?? ($notif->tanggapan ?? '')) : '';
                 $hasResponse = !empty(trim($tanggapanRaw));
-                
+
                 $isRejected = false;
                 if ($hasResponse) {
                     $lowTanggapan = strtolower($tanggapanRaw);
                     $isRejected = str_contains($lowTanggapan, 'tolak') || 
                                  str_contains($lowTanggapan, 'gagal') || 
-                                 str_contains($lowTanggapan, 'salah') ||
+                                 str_contains($lowTanggapan, 'salah') || 
                                  str_contains($lowTanggapan, 'tidak ditemukan');
                 }
 
                 $statusLabel = $isRejected ? 'Ditolak' : ($hasResponse ? 'Selesai' : 'Proses');
-                $cardBg = $hasResponse ? ($isRejected ? 'bg-red-50/50' : 'bg-emerald-50/50') : 'bg-white';
-                $borderColor = $hasResponse ? ($isRejected ? 'border-red-200' : 'border-emerald-200') : 'border-slate-200';
+                $cardBg = $notif ? ($hasResponse ? ($isRejected ? 'bg-red-50/50' : 'bg-emerald-50/50') : 'bg-white') : 'bg-slate-50/50';
+                $borderColor = $notif ? ($hasResponse ? ($isRejected ? 'border-red-200' : 'border-emerald-200') : 'border-slate-200') : 'border-slate-100';
 
                 $formattedKirim = '-';
                 $formattedBalas = '';
                 $diffForHumans = '';
 
                 if ($notif) {
-                    $dtKirim = \Carbon\Carbon::parse($notif->created_at ?? $notif->tanggal)->setTimezone('Asia/Jakarta');
+                    $dtKirim = \Carbon\Carbon::parse($notif->created_at ?? $notif->tanggal ?? now())->setTimezone('Asia/Jakarta');
                     $formattedKirim = $dtKirim->translatedFormat('d F Y • H:i') . ' WIB';
                     $diffForHumans = $dtKirim->diffForHumans();
-                    
+
                     if ($hasResponse) {
                         $dtBalas = \Carbon\Carbon::parse($notif->updated_at ?? now())->setTimezone('Asia/Jakarta');
                         $formattedBalas = $dtBalas->translatedFormat('d F Y • H:i') . ' WIB';
@@ -478,13 +503,11 @@
             @endphp
 
             <div class="flex flex-col gap-3">
-                <div 
-                    @if($notif) 
-                    @click="selectedNotif = { 
-                        id: '{{ $notif->id ?? rand(1,999) }}',
+                <div @if($notif) @click="selectedNotif = { 
+                        id: '{{ $notif->id ?? rand(1, 999) }}',
                         kategori: '{{ $style['label'] }}', 
                         kategori_asli: '{{ cleanForJs($notif->kategori ?? $notif->jenis_registrasi ?? $key) }}',
-                        jenis_layanan: '{{ cleanForJs($notif->jenis_permasalahan ?? $notif->jenis_layanan ?? 'Layanan Luar Daerah') }}',
+                        jenis_layanan: '{{ cleanForJs($notif->jenis_permasalahan ?? $notif->jenis_layanan ?? $style['label']) }}',
                         jenis_dokumen: '{{ cleanForJs($dokumenDisplay) }}',
                         pesan: '{{ cleanForJs($notif->deskripsi ?? $notif->pesan ?? 'Tidak ada pesan') }}', 
                         tanggapan: '{{ $hasResponse ? cleanForJs($tanggapanRaw) : 'Sedang dalam verifikasi.' }}',
@@ -494,8 +517,7 @@
                         icon: '{{ $style['icon'] }}',
                         status: '{{ $statusLabel }}',
                         color: '{{ $isRejected ? 'text-red-600' : ($hasResponse ? 'text-emerald-600' : $style['color']) }}'
-                    }; showDetail = true;" 
-                    @endif
+                    }; showDetail = true;" @endif
                     class="group relative {{ $cardBg }} p-6 rounded-[2rem] border {{ $borderColor }} shadow-sm transition-all duration-300 {{ $notif ? 'hover:shadow-xl hover:-translate-y-2 cursor-pointer active:scale-95' : 'opacity-60 grayscale' }}">
 
                     <div class="relative z-10">
@@ -508,7 +530,9 @@
                             @endif
                         </div>
 
-                        <h3 class="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">{{ $style['label'] }}</h3>
+                        <h3 class="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                            {{ $style['label'] }}
+                        </h3>
 
                         <div class="min-h-[44px]">
                             @if($hasResponse)
@@ -550,22 +574,22 @@
                                 $histTanggapan = $hist->tanggapan_admin ?? $hist->tanggapan ?? '';
                                 $histHasResp = !empty(trim($histTanggapan));
                                 $histIsRejected = $histHasResp && (str_contains(strtolower($histTanggapan), 'tolak') || str_contains(strtolower($histTanggapan), 'gagal'));
-                                $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? '-';
+                                $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? $hist->jenis_layanan ?? '-';
                             @endphp
                             <div @click="selectedNotif = { 
-                                id: '{{ $hist->id ?? rand(1000,9999) }}',
-                                kategori: '{{ $style['label'] }}', 
-                                kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
-                                jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? 'Layanan Daerah') }}',
-                                jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
-                                pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
-                                tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
-                                full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
-                                has_response: {{ $histHasResp ? 'true' : 'false' }},
-                                status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
-                                icon: '{{ $style['icon'] }}'
-                            }; showDetail = true;"
-                            class="group/item bg-white p-2 rounded-xl text-[10px] border border-slate-100 flex justify-between items-center cursor-pointer hover:border-slate-300 transition-all">
+                                        id: '{{ $hist->id ?? rand(1000, 9999) }}',
+                                        kategori: '{{ $style['label'] }}', 
+                                        kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
+                                        jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
+                                        jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
+                                        pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
+                                        tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
+                                        full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
+                                        has_response: {{ $histHasResp ? 'true' : 'false' }},
+                                        status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
+                                        icon: '{{ $style['icon'] }}'
+                                    }; showDetail = true;"
+                                class="group/item bg-white p-2 rounded-xl text-[10px] border border-slate-100 flex justify-between items-center cursor-pointer hover:border-slate-300 transition-all">
                                 <div class="flex items-center gap-2">
                                     <span class="w-1 h-1 rounded-full {{ $histHasResp ? ($histIsRejected ? 'bg-red-400' : 'bg-emerald-400') : 'bg-amber-400' }}"></span>
                                     <span class="font-bold text-slate-500">{{ $dtHist->format('d/m/Y') }}</span>
@@ -580,123 +604,92 @@
             </div>
         @endforeach
     </div>
-</div>
 
-                    {{-- MODAL DETAIL --}}
-                    <template x-teleport="body">
-                        <div x-show="showDetail" class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-                            x-cloak>
-                            <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-sm" @click="showDetail = false">
+    {{-- MODAL DETAIL --}}
+    <template x-teleport="body">
+        <div x-show="showDetail" class="fixed inset-0 z-[9999] flex items-center justify-center p-4" x-cloak>
+            <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-sm" @click="showDetail = false"></div>
+
+            <div x-show="showDetail" x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                class="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl relative z-10 border border-white/20">
+
+                <div class="p-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-3">
+                            <div :class="selectedNotif.color ? selectedNotif.color.replace('text', 'bg').replace('600', '100') + ' ' + selectedNotif.color : 'bg-slate-100 text-slate-600'"
+                                class="w-10 h-10 rounded-xl flex items-center justify-center">
+                                <i class="fas" :class="selectedNotif.icon"></i>
                             </div>
-
-                            <div x-show="showDetail" x-transition:enter="transition ease-out duration-300"
-                                x-transition:enter-start="opacity-0 scale-95"
-                                x-transition:enter-end="opacity-100 scale-100"
-                                class="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl relative z-10 border border-white/20">
-
-                                <div class="p-8">
-                                    <div class="flex justify-between items-center mb-6">
-                                        <div class="flex items-center gap-3">
-                                            <div :class="selectedNotif.color ? selectedNotif.color.replace('text', 'bg').replace('600', '100') + ' ' + selectedNotif.color : ''"
-                                                class="w-10 h-10 rounded-xl flex items-center justify-center">
-                                                <i class="fas" :class="selectedNotif.icon"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="text-slate-800 font-black text-lg leading-none">Detail
-                                                    Laporan</h4>
-                                                <span
-                                                    class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"
-                                                    x-text="selectedNotif.kategori"></span>
-                                            </div>
-                                        </div>
-                                        <button @click="showDetail = false"
-                                            class="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 rounded-full hover:bg-red-50 hover:text-red-500 transition-all">
-                                            <i class="fas fa-times text-xs"></i>
-                                        </button>
-                                    </div>
-
-                                    <div class="space-y-4">
-                                        <div class="grid grid-cols-1 gap-2">
-                                            <template
-                                                x-if="selectedNotif.kategori_asli && selectedNotif.kategori_asli !== ''">
-                                                <div class="px-4 py-3 bg-blue-50 border border-blue-100 rounded-2xl">
-                                                    <p
-                                                        class="text-[8px] font-black text-blue-400 uppercase leading-none mb-1">
-                                                        Kategori Masalah:</p>
-                                                    <p class="text-blue-900 text-xs font-bold"
-                                                        x-text="selectedNotif.kategori_asli"></p>
-                                                </div>
-                                            </template>
-
-                                            <template
-                                                x-if="selectedNotif.jenis_layanan && selectedNotif.jenis_layanan !== ''">
-                                                <div
-                                                    class="px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                                                    <p
-                                                        class="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">
-                                                        Jenis Layanan:</p>
-                                                    <p class="text-indigo-900 text-xs font-bold"
-                                                        x-text="selectedNotif.jenis_layanan"></p>
-                                                </div>
-                                            </template>
-
-                                            <template
-                                                x-if="selectedNotif.jenis_dokumen && selectedNotif.jenis_dokumen !== ''">
-                                                <div
-                                                    class="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                                                    <p
-                                                        class="text-[8px] font-black text-emerald-400 uppercase leading-none mb-1">
-                                                        Jenis Dokumen:</p>
-                                                    <p class="text-emerald-900 text-xs font-bold"
-                                                        x-text="selectedNotif.jenis_dokumen"></p>
-                                                </div>
-                                            </template>
-                                        </div>
-
-                                        <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <div class="flex justify-between items-start mb-2">
-                                                <p class="text-[9px] font-black text-slate-400 uppercase">Deskripsi /
-                                                    Pesan:</p>
-                                                <span class="text-[7px] text-slate-400 font-bold"
-                                                    x-text="selectedNotif.full_date"></span>
-                                            </div>
-                                            <p class="text-slate-700 text-sm font-semibold italic"
-                                                x-text="selectedNotif.pesan"></p>
-                                        </div>
-
-                                        <div :class="selectedNotif.status === 'Ditolak' ? 'bg-red-900 border-red-500' : 'bg-slate-900 border-orange-500'"
-                                            class="p-6 rounded-[1.8rem] relative overflow-hidden shadow-xl border-b-4 text-white">
-                                            <p class="text-[9px] font-black uppercase mb-3 relative z-10 opacity-70"
-                                                :class="selectedNotif.status === 'Ditolak' ? 'text-red-200' : 'text-orange-400'">
-                                                Balasan Petugas:
-                                            </p>
-                                            <p class="text-[13px] leading-relaxed relative z-10 font-medium"
-                                                x-text="selectedNotif.tanggapan"></p>
-
-                                            <div
-                                                class="mt-4 pt-4 border-t border-white/10 flex justify-between items-center relative z-10">
-                                                <template x-if="selectedNotif.has_response">
-                                                    <span class="text-[9px] text-white font-bold uppercase"
-                                                        x-text="selectedNotif.update_date"></span>
-                                                </template>
-                                                <span
-                                                    class="px-2 py-1 bg-white/10 rounded text-[7px] font-black uppercase tracking-tighter"
-                                                    x-text="selectedNotif.status"></span>
-                                            </div>
-                                            <i class="fas absolute -right-4 -bottom-4 text-white/5 text-7xl rotate-12"
-                                                :class="selectedNotif.icon"></i>
-                                        </div>
-                                    </div>
-
-                                    <button @click="showDetail = false"
-                                        class="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95">
-                                        Tutup
-                                    </button>
-                                </div>
+                            <div>
+                                <h4 class="text-slate-800 font-black text-lg leading-none">Detail Laporan</h4>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest" x-text="selectedNotif.kategori"></span>
                             </div>
                         </div>
-                    </template>
+                        <button @click="showDetail = false" class="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 rounded-full hover:bg-red-50 hover:text-red-500 transition-all">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 gap-2">
+                            <template x-if="selectedNotif.kategori_asli">
+                                <div class="px-4 py-3 bg-blue-50 border border-blue-100 rounded-2xl">
+                                    <p class="text-[8px] font-black text-blue-400 uppercase leading-none mb-1">Kategori Masalah:</p>
+                                    <p class="text-blue-900 text-xs font-bold" x-text="selectedNotif.kategori_asli"></p>
+                                </div>
+                            </template>
+                            <template x-if="selectedNotif.jenis_layanan">
+                                <div class="px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                                    <p class="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">Jenis Layanan:</p>
+                                    <p class="text-indigo-900 text-xs font-bold" x-text="selectedNotif.jenis_layanan"></p>
+                                </div>
+                            </template>
+                            <template x-if="selectedNotif.jenis_dokumen">
+                                <div class="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                                    <p class="text-[8px] font-black text-emerald-400 uppercase leading-none mb-1">Jenis Dokumen:</p>
+                                    <p class="text-emerald-900 text-xs font-bold" x-text="selectedNotif.jenis_dokumen"></p>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-[9px] font-black text-slate-400 uppercase">Deskripsi / Pesan:</p>
+                                <span class="text-[7px] text-slate-400 font-bold" x-text="selectedNotif.full_date"></span>
+                            </div>
+                            <p class="text-slate-700 text-sm font-semibold italic" x-text="selectedNotif.pesan"></p>
+                        </div>
+
+                        <div :class="selectedNotif.status === 'Ditolak' ? 'bg-red-900 border-red-500' : 'bg-slate-900 border-orange-500'"
+                            class="p-6 rounded-[1.8rem] relative overflow-hidden shadow-xl border-b-4 text-white">
+                            <p class="text-[9px] font-black uppercase mb-3 relative z-10 opacity-70"
+                                :class="selectedNotif.status === 'Ditolak' ? 'text-red-200' : 'text-orange-400'">
+                                Balasan Petugas:
+                            </p>
+                            <p class="text-[13px] leading-relaxed relative z-10 font-medium" x-text="selectedNotif.tanggapan"></p>
+
+                            <div class="mt-4 pt-4 border-t border-white/10 flex justify-between items-center relative z-10">
+                                <template x-if="selectedNotif.has_response">
+                                    <span class="text-[9px] text-white font-bold uppercase" x-text="selectedNotif.update_date"></span>
+                                </template>
+                                <span class="px-2 py-1 bg-white/10 rounded text-[7px] font-black uppercase tracking-tighter" x-text="selectedNotif.status"></span>
+                            </div>
+                            <i class="fas absolute -right-4 -bottom-4 text-white/5 text-7xl rotate-12" :class="selectedNotif.icon"></i>
+                        </div>
+                    </div>
+
+                    <button @click="showDetail = false"
+                        class="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95">
+                        Tutup
+                    </button>
                 </div>
+            </div>
+        </div>
+    </template>
+</div>
+</div>
 
                 <div x-show="tab === 'registrasi'" x-transition x-cloak>
                     <div
@@ -850,6 +843,8 @@
                     </div>
                 </div>
 
+
+
                 <div x-show="tab === 'pembubuhan'" x-transition:enter="transition ease-out duration-300"
                     x-transition:enter-start="opacity-0 transform scale-95"
                     x-transition:enter-end="opacity-100 transform scale-100" x-cloak>
@@ -904,7 +899,8 @@
                                     </div>
                                     @error('jenis_dokumen')
                                         <p class="text-red-500 text-[10px] font-bold mt-1 ml-2 uppercase italic">
-                                            {{ $message }}</p>
+                                            {{ $message }}
+                                        </p>
                                     @enderror
                                 </div>
 
@@ -930,107 +926,114 @@
                             class="fas fa-file-signature absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50"></i>
                     </div>
                 </div>
-<div x-show="tab === 'luardaerah'" x-transition:enter="transition ease-out duration-300"
-    x-transition:enter-start="opacity-0 transform scale-95"
-    x-transition:enter-end="opacity-100 transform scale-100" x-cloak>
 
-    <div x-data="{ isSubmittingLuar: false }"
-        class="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] text-slate-900 shadow-sm border border-slate-100 relative overflow-hidden">
 
-        <div class="relative z-10">
-            <h2 class="text-xl md:text-2xl font-black mb-2 uppercase italic text-slate-800">Layanan Luar
-                Daerah</h2>
-            <p class="text-[10px] text-slate-500 mb-8 max-w-lg leading-relaxed font-bold uppercase tracking-wide">
-                Gunakan formulir ini untuk melaporkan atau mengajukan dokumen kependudukan yang berasal
-                dari luar daerah.
-            </p>
+                <div x-show="tab === 'luardaerah'" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100" x-cloak>
 
-            <form action="{{ route('user.luardaerah.store') }}" method="POST" class="space-y-4"
-                id="formLuarDaerah" @submit="isSubmittingLuar = true">
-                @csrf
+                    <div x-data="{ isSubmittingLuar: false }"
+                        class="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] text-slate-900 shadow-sm border border-slate-100 relative overflow-hidden">
 
-                <input type="hidden" name="sumber_layanan" value="LUAR_DAERAH">
+                        <div class="relative z-10">
+                            <h2 class="text-xl md:text-2xl font-black mb-2 uppercase italic text-slate-800">Layanan Luar
+                                Daerah</h2>
+                            <p
+                                class="text-[10px] text-slate-500 mb-8 max-w-lg leading-relaxed font-bold uppercase tracking-wide">
+                                Gunakan formulir ini untuk melaporkan atau mengajukan dokumen kependudukan yang berasal
+                                dari luar daerah.
+                            </p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label
-                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
-                            NIK User (Otomatis)
-                        </label>
-                        <input type="text" name="nik" value="{{ auth()->user()->nik }}" readonly
-                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-sm text-slate-500 outline-none cursor-not-allowed">
-                        @error('nik')
-                            <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
-                                {{ $message }}</p>
-                        @enderror
-                    </div>
+                            <form action="{{ route('user.luardaerah.store') }}" method="POST" class="space-y-4"
+                                id="formLuarDaerah" @submit="isSubmittingLuar = true">
+                                @csrf
 
-                    <div>
-                        <label
-                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
-                            NIK Pemohon Luar Daerah
-                        </label>
-                        <input type="text" name="nik_luar_daerah" required maxlength="16"
-                            value="{{ old('nik_luar_daerah') }}"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 transition-all"
-                            placeholder="Masukkan 16 digit NIK luar daerah"
-                            onkeypress="return event.charCode >= 48 && event.charCode <= 57">
-                        @error('nik_luar_daerah')
-                            <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
-                                {{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
+                                <input type="hidden" name="sumber_layanan" value="LUAR_DAERAH">
 
-                <div>
-                    <label
-                        class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
-                        Jenis Dokumen / Layanan Luar Daerah
-                    </label>
-                    <div class="relative">
-                        <select name="jenis_dokumen" required
-                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 appearance-none transition-all">
-                            <option value="" disabled selected>-- Pilih Layanan Luar Daerah --</option>
-                            <option value="PINDAH" {{ old('jenis_dokumen') == 'PINDAH' ? 'selected' : '' }}>Pindah Datang (Luar Daerah)</option>
-                            <option value="KONSOLIDASI" {{ old('jenis_dokumen') == 'KONSOLIDASI' ? 'selected' : '' }}>Konsolidasi Manual</option>
-                            <option value="UPDATE" {{ old('jenis_dokumen') == 'UPDATE' ? 'selected' : '' }}>Update Data Luar</option>
-                            <option value="REKAM_KTP" {{ old('jenis_dokumen') == 'REKAM_KTP' ? 'selected' : '' }}>Rekam KTP</option>
-                            <option value="CETAK_KTP" {{ old('jenis_dokumen') == 'CETAK_KTP' ? 'selected' : '' }}>Cetak KTP</option>
-                        </select>
-                        <div
-                            class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
-                            <i class="fas fa-map-marker-alt text-xs"></i>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label
+                                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                            NIK User (Otomatis)
+                                        </label>
+                                        <input type="text" name="nik" value="{{ auth()->user()->nik }}" readonly
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-sm text-slate-500 outline-none cursor-not-allowed">
+                                        @error('nik')
+                                            <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                            NIK Pemohon Luar Daerah
+                                        </label>
+                                        <input type="text" name="nik_luar_daerah" required maxlength="16"
+                                            value="{{ old('nik_luar_daerah') }}"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 transition-all"
+                                            placeholder="Masukkan 16 digit NIK luar daerah"
+                                            onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                                        @error('nik_luar_daerah')
+                                            <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label
+                                        class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                        Jenis Dokumen / Layanan Luar Daerah
+                                    </label>
+                                    <div class="relative">
+                                        <select name="jenis_dokumen" required
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 appearance-none transition-all">
+                                            <option value="" disabled selected>-- Pilih Layanan Luar Daerah --</option>
+                                            <option value="PINDAH" {{ old('jenis_dokumen') == 'PINDAH' ? 'selected' : '' }}>Pindah Datang (Luar Daerah)</option>
+                                            <option value="KONSOLIDASI" {{ old('jenis_dokumen') == 'KONSOLIDASI' ? 'selected' : '' }}>Konsolidasi Manual</option>
+                                            <option value="UPDATE" {{ old('jenis_dokumen') == 'UPDATE' ? 'selected' : '' }}>Update Data Luar</option>
+                                            <option value="REKAM_KTP" {{ old('jenis_dokumen') == 'REKAM_KTP' ? 'selected' : '' }}>Rekam KTP</option>
+                                            <option value="CETAK_KTP" {{ old('jenis_dokumen') == 'CETAK_KTP' ? 'selected' : '' }}>Cetak KTP</option>
+                                        </select>
+                                        <div
+                                            class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
+                                            <i class="fas fa-map-marker-alt text-xs"></i>
+                                        </div>
+                                    </div>
+                                    @error('jenis_dokumen')
+                                        <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
+                                </div>
+
+                                <button type="submit" :disabled="isSubmittingLuar"
+                                    :class="isSubmittingLuar ? 'bg-slate-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-200 shadow-lg active:scale-[0.98]'"
+                                    class="w-full text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all mt-4 flex items-center justify-center gap-2">
+
+                                    <template x-if="!isSubmittingLuar">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fas fa-paper-plane"></i> Kirim Data Luar Daerah
+                                        </span>
+                                    </template>
+
+                                    <template x-if="isSubmittingLuar">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fas fa-circle-notch animate-spin"></i> Memproses Pengajuan...
+                                        </span>
+                                    </template>
+                                </button>
+                            </form>
                         </div>
+
+                        <i
+                            class="fas fa-map-marked-alt absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50"></i>
                     </div>
-                    @error('jenis_dokumen')
-                        <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
-                            {{ $message }}</p>
-                    @enderror
                 </div>
 
-                <button type="submit" :disabled="isSubmittingLuar"
-                    :class="isSubmittingLuar ? 'bg-slate-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-200 shadow-lg active:scale-[0.98]'"
-                    class="w-full text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all mt-4 flex items-center justify-center gap-2">
-
-                    <template x-if="!isSubmittingLuar">
-                        <span class="flex items-center gap-2">
-                            <i class="fas fa-paper-plane"></i> Kirim Data Luar Daerah
-                        </span>
-                    </template>
-
-                    <template x-if="isSubmittingLuar">
-                        <span class="flex items-center gap-2">
-                            <i class="fas fa-circle-notch animate-spin"></i> Memproses Pengajuan...
-                        </span>
-                    </template>
-                </button>
-            </form>
-        </div>
-
-        <i
-            class="fas fa-map-marked-alt absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50"></i>
-    </div>
-</div>
 
                 <div x-show="tab === 'edit_profil'" x-transition x-cloak>
                     <div
@@ -1120,90 +1123,240 @@
                     </div>
                 </div>
 
-                <div x-show="tab === 'aktivasi'" x-transition x-cloak x-data="{ jenisLayanan: '' }">
+
+                <div x-show="tab === 'aktivasi'" x-transition x-cloak x-data="{ jenisLayanan: '', fileName: '' }">
                     <div
-                        class="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
-                        <div class="flex items-center space-x-3 mb-8">
+                        class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
+                        <div class="flex items-center space-x-3 mb-6">
                             <div
-                                class="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
-                                <i class="fas fa-id-card"></i>
+                                class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 text-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                                <i class="fas fa-id-card text-sm md:text-base"></i>
                             </div>
-                            <h2 class="text-lg md:text-xl font-black uppercase italic">Permintaan Aktivasi NIK</h2>
+                            <h2 class="text-base md:text-xl font-black uppercase italic">Permintaan Aktivasi NIK</h2>
                         </div>
 
-                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8">
-                            <p class="text-[9px] md:text-[10px] text-blue-700 font-black leading-relaxed uppercase">
-                                <i class="fas fa-info-circle mr-2"></i> Kirimkan permintaan jika NIK Anda tidak
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6">
+                            <p class="text-[8px] md:text-[10px] text-blue-700 font-black leading-tight uppercase">
+                                <i class="fas fa-info-circle mr-1"></i> Kirimkan permintaan jika NIK Anda tidak
                                 terdeteksi di portal kependudukan.
                             </p>
                         </div>
 
                         <form action="{{ route('aktivasi.store') }}" method="POST" enctype="multipart/form-data"
-                            class="space-y-6">
+                            class="space-y-4 md:space-y-6">
                             @csrf
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block">Nama
-                                        Sesuai KTP</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Nama
+                                        Pelapor</label>
                                     <input type="text" name="nama_lengkap" required value="{{ $user->name ?? '' }}"
-                                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
                                 </div>
 
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block">NIK (16
-                                        Digit)</label>
-                                    <input type="number" name="nik_aktivasi" required value="{{ $user->nik ?? '' }}"
-                                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">NIK Pemohon
+                                        (16 Digit)</label>
+                                    <input type="number" name="nik_aktivasi" required
+                                        oninput="if (this.value.length > 16) this.value = this.value.slice(0, 16)"
+                                        placeholder="16 digit NIK"
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
                                 </div>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block">Pilih Jenis
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Pilih Jenis
                                     Layanan</label>
                                 <select name="jenis_layanan" required x-model="jenisLayanan"
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
                                     <option value="" disabled selected>-- Pilih Layanan --</option>
                                     <option value="restore">RESTORE DATA (Wajib Unggah Foto)</option>
                                     <option value="aktivasi">AKTIVASI DATA (Unggah Foto Opsional)</option>
                                 </select>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block">
-                                    Unggah Lampiran (KTP/KK)
+                            <div class="space-y-3">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
+                                    Tangkapan Layar / Foto Dokumen
                                     <template x-if="jenisLayanan === 'restore'">
                                         <span class="text-red-500 font-black">(WAJIB)</span>
                                     </template>
-                                    <template x-if="jenisLayanan === 'aktivasi'">
-                                        <span class="text-slate-400 italic">(OPSIONAL)</span>
-                                    </template>
                                 </label>
-                                <div class="relative">
+
+                                <div class="relative group">
                                     <input type="file" name="lampiran" :required="jenisLayanan === 'restore'"
-                                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                                        @change="fileName = $event.target.files[0].name"
+                                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+
+                                    <div class="w-full border-2 border-dashed rounded-[1.5rem] p-4 md:p-8 transition-all flex flex-col items-center justify-center"
+                                        :class="fileName ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
+
+                                        <div x-show="!fileName" class="flex flex-col items-center space-y-2">
+                                            <div
+                                                class="w-10 h-10 md:w-16 md:h-16 bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 transition-colors">
+                                                <i class="fas fa-camera text-xl md:text-2xl"></i>
+                                            </div>
+                                            <p
+                                                class="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                                Klik Untuk Unggah Foto</p>
+                                        </div>
+
+                                        <div x-show="fileName"
+                                            class="flex flex-col items-center space-y-2 w-full text-center">
+                                            <i class="fas fa-file-image text-orange-600 text-xl"></i>
+                                            <p class="text-[10px] font-black text-orange-600 truncate max-w-[200px]"
+                                                x-text="fileName"></p>
+                                            <div
+                                                class="bg-slate-900 text-white px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                                <i class="fas fa-sync-alt mr-1"></i> Ganti
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block">
-                                    Pesan Tambahan
-                                    <span x-show="jenisLayanan === 'aktivasi'"
-                                        class="text-slate-400 italic">(OPSIONAL)</span>
-                                </label>
-                                <textarea name="alasan" rows="3"
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all"
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Pesan
+                                    Tambahan</label>
+                                <textarea name="alasan" rows="2"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all"
                                     placeholder="Contoh: NIK tidak ditemukan saat daftar BPJS"></textarea>
                             </div>
 
                             <button type="submit"
-                                class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase tracking-widest text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
+                                class="w-full bg-blue-600 text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
                                 KIRIM PERMINTAAN <span x-text="jenisLayanan.toUpperCase()"></span>
                             </button>
                         </form>
                     </div>
                 </div>
 
+
+                <div x-show="tab === 'update_data'" x-transition x-cloak
+                    x-data="{ jenisLayanan: '', fileCount: 0, files: [] }">
+                    <div
+                        class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
+
+                        <div class="flex items-center space-x-3 mb-6">
+                            <div
+                                class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 text-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                                <i class="fas fa-user-edit text-sm md:text-base"></i>
+                            </div>
+                            <h2 class="text-base md:text-xl font-black uppercase italic">Permohonan Update Data</h2>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6">
+                            <p class="text-[8px] md:text-[10px] text-blue-700 font-black leading-tight uppercase">
+                                <i class="fas fa-info-circle mr-1"></i> Ajukan perubahan elemen data kependudukan jika
+                                terdapat kesalahan.
+                            </p>
+                        </div>
+
+                        <form action="{{ route('update-data.store') }}" method="POST" enctype="multipart/form-data"
+                            class="space-y-4 md:space-y-6">
+                            @csrf
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Nama
+                                        Pelapor</label>
+                                    <input type="text" name="nama_lengkap" required value="{{ $user->name ?? '' }}"
+                                        readonly
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm font-semibold transition-all text-slate-500">
+                                </div>
+
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">NIK
+                                        Pemohon</label>
+                                    <input type="number" name="nik_pemohon" required
+                                        oninput="if (this.value.length > 16) this.value = this.value.slice(0, 16)"
+                                        placeholder="16 digit NIK"
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
+                                    @error('nik_pemohon')
+                                        <span class="text-[10px] text-red-500 font-bold ml-2">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Jenis
+                                    Perubahan</label>
+                                <select name="jenis_layanan" required x-model="jenisLayanan"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
+                                    <option value="" disabled selected>-- Pilih Perubahan Data --</option>
+                                    <option value="Perubahan Nama">PERUBAHAN NAMA</option>
+                                    <option value="Perubahan Tanggal Lahir">PERUBAHAN TANGGAL LAHIR</option>
+                                    <option value="Perubahan Agama">PERUBAHAN AGAMA</option>
+                                    <option value="Perubahan Jenis Kelamin">PERUBAHAN JENIS KELAMIN</option>
+                                    <option value="Perubahan Golongan Darah">PERUBAHAN GOLONGAN DARAH</option>
+                                </select>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
+                                    Unggah Lampiran <span class="text-red-500">(WAJIB)</span>
+                                </label>
+
+                                <div class="relative group">
+                                    <input type="file" name="lampiran[]" multiple required
+                                        @change="fileCount = $event.target.files.length; files = Array.from($event.target.files).map(f => URL.createObjectURL(f))"
+                                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+
+                                    <div class="w-full border-2 border-dashed rounded-[1.5rem] p-4 md:p-6 transition-all flex flex-col items-center justify-center"
+                                        :class="fileCount > 0 ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
+
+                                        <div x-show="fileCount === 0" class="flex flex-col items-center space-y-2">
+                                            <div
+                                                class="w-10 h-10 md:w-16 md:h-16 bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 transition-colors">
+                                                <i class="fas fa-camera text-xl md:text-2xl"></i>
+                                            </div>
+                                            <p
+                                                class="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                                Klik Unggah Dokumen (Bisa > 1)</p>
+                                        </div>
+
+                                        <div x-show="fileCount > 0" class="w-full flex flex-col items-center space-y-4">
+                                            <div class="flex flex-wrap justify-center gap-2 md:gap-3">
+                                                <template x-for="(file, index) in files" :key="index">
+                                                    <div class="relative">
+                                                        <div
+                                                            class="w-10 h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-orange-200 overflow-hidden bg-white shadow-sm">
+                                                            <img :src="file" class="w-full h-full object-cover">
+                                                        </div>
+                                                        <div class="absolute -top-1.5 -right-1.5 w-4 h-4 md:w-5 md:h-5 bg-orange-500 text-white text-[8px] md:text-[9px] font-black rounded-full flex items-center justify-center shadow-lg border border-white"
+                                                            x-text="index + 1"></div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="text-center">
+                                                <p class="text-[10px] md:text-[11px] font-black text-orange-600 uppercase italic"
+                                                    x-text="fileCount + ' Foto Terpilih'"></p>
+                                                <div
+                                                    class="mt-2 bg-slate-900 text-white px-5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest inline-flex items-center">
+                                                    <i class="fas fa-sync-alt mr-1"></i> Ganti Foto
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Deskripsi /
+                                    Alasan <span class="text-red-500">*</span></label>
+                                <textarea name="alasan" required rows="2"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all"
+                                    placeholder="Contoh: Perubahan agama sesuai surat pernyataan..."></textarea>
+                            </div>
+
+                            <button type="submit"
+                                class="w-full bg-blue-600 text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
+                                KIRIM PERMINTAAN <span x-text="jenisLayanan.toUpperCase()"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
 
                 <div x-show="tab === 'proxy'" x-transition x-cloak>
                     <div
