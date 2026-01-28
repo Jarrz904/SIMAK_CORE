@@ -1,0 +1,387 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+use App\Models\Trouble;
+use App\Models\Aktivasi;
+use App\Models\Pengajuan;
+use App\Models\Proxy;
+use App\Models\Pembubuhan; 
+use App\Models\LuarDaerah;
+use App\Models\Kecamatan;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+
+class UserController extends Controller
+{
+    /**
+     * Menampilkan halaman Dashboard User/Penduduk.
+     */
+    public function index()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+        
+        $userId = $user->id;
+        $kecamatans = Kecamatan::all();
+
+        // Ambil data spesifik user
+        $troubles = Trouble::where('user_id', $userId)->latest()->get();
+        $aktivasis = Aktivasi::where('user_id', $userId)->latest()->get();
+        $pengajuans = Pengajuan::where('user_id', $userId)->latest()->get();
+        $proxies = Proxy::where('user_id', $userId)->latest()->get();
+        $pembubuhans = Pembubuhan::where('user_id', $userId)->latest()->get();
+        $luardaerahs = LuarDaerah::where('user_id', $userId)->latest()->get(); 
+
+        $counts = [
+            'trouble' => $troubles->count(),
+            'aktivasi' => $aktivasis->count(),
+            'pengajuan' => $pengajuans->count(),
+            'proxy' => $proxies->count(),
+            'pembubuhan' => $pembubuhans->count(),
+            'luardaerah' => $luardaerahs->count(),
+        ];
+
+        $allNotifications = collect();
+
+        foreach ($troubles as $t) {
+            $allNotifications->push((object) [
+                'id' => $t->id,
+                'group_key' => 'PC_CARD',
+                'kategori' => 'PC - ' . strtoupper($t->kategori ?? 'GANGGUAN SISTEM'),
+                'kategori_asli' => $t->kategori, 
+                'jenis_layanan' => 'KENDALA PC',
+                'jenis_dokumen' => null,
+                'pesan' => $t->deskripsi,
+                'tanggapan_admin' => $t->tanggapan_admin,
+                'is_rejected' => (bool)($t->is_rejected ?? false),
+                'created_at' => $t->created_at,
+                'updated_at' => $t->updated_at,
+                'type' => 'trouble',
+                'status' => $t->status
+            ]);
+        }
+
+        foreach ($aktivasis as $a) {
+            $prefix = strtoupper($a->jenis_layanan ?? 'AKTIVASI');
+            $allNotifications->push((object) [
+                'id' => $a->id,
+                'group_key' => 'NIK_CARD',
+                'kategori' => 'NIK - ' . $prefix,
+                'kategori_asli' => null,
+                'jenis_layanan' => strtoupper($a->jenis_layanan),
+                'jenis_dokumen' => null,
+                'pesan' => ($a->alasan ?? "Permintaan " . $prefix . " NIK: " . $a->nik_aktivasi),
+                'tanggapan_admin' => $a->tanggapan_admin,
+                'is_rejected' => (bool)($a->is_rejected ?? false),
+                'created_at' => $a->created_at,
+                'updated_at' => $a->updated_at,
+                'type' => 'aktivasi',
+                'status' => $a->status
+            ]);
+        }
+
+        foreach ($pengajuans as $p) {
+            $kategoriTampil = !empty($p->kategori) ? $p->kategori : $p->jenis_registrasi;
+            $allNotifications->push((object) [
+                'id' => $p->id,
+                'group_key' => 'SIAK_CARD',
+                'kategori' => 'SIAK - ' . strtoupper($kategoriTampil),
+                'kategori_asli' => strtoupper($kategoriTampil),
+                'jenis_layanan' => 'SIAK', 
+                'jenis_dokumen' => null,
+                'pesan' => $p->deskripsi ?? "Laporan Kendala SIAK",
+                'tanggapan_admin' => $p->tanggapan_admin,
+                'is_rejected' => (bool)($p->is_rejected ?? false),
+                'created_at' => $p->created_at,
+                'updated_at' => $p->updated_at,
+                'type' => 'pengajuan',
+                'status' => $p->status
+            ]);
+        }
+
+        foreach ($proxies as $pr) {
+            $allNotifications->push((object) [
+                'id' => $pr->id,
+                'group_key' => 'PROXY_CARD',
+                'kategori' => 'PROXY - KENDALA IP',
+                'kategori_asli' => 'KENDALA JARINGAN',
+                'jenis_layanan' => 'PROXY', 
+                'jenis_dokumen' => null,
+                'pesan' => $pr->deskripsi ?? $pr->ip_detail, 
+                'tanggapan_admin' => $pr->tanggapan_admin,
+                'is_rejected' => (bool)($pr->is_rejected ?? false),
+                'created_at' => $pr->created_at,
+                'updated_at' => $pr->updated_at,
+                'type' => 'proxy',
+                'status' => $pr->status
+            ]);
+        }
+
+        foreach ($pembubuhans as $pb) {
+            $allNotifications->push((object) [
+                'id' => $pb->id,
+                'group_key' => 'TTE_CARD',
+                'kategori' => 'PEMBUBUHAN TTE',
+                'kategori_asli' => 'TTE',
+                'jenis_layanan' => 'TTE', 
+                'jenis_dokumen' => strtoupper($pb->jenis_dokumen ?? 'PENGAJUAN TTE'),
+                'pesan' => "TTE: No. Dokumen: " . ($pb->no_akte ?? '-') . " | Jenis: " . strtoupper($pb->jenis_dokumen), 
+                'tanggapan_admin' => $pb->tanggapan_admin,
+                'is_rejected' => (bool)($pb->is_rejected ?? false),
+                'created_at' => $pb->created_at,
+                'updated_at' => $pb->updated_at,
+                'type' => 'pembubuhan', 
+                'status' => $pb->status ?? 'Pending'
+            ]);
+        }
+
+        foreach ($luardaerahs as $ld) {
+            $allNotifications->push((object) [
+                'id' => $ld->id,
+                'group_key' => 'LUAR_CARD',
+                'kategori' => 'LUAR DAERAH',
+                'kategori_asli' => 'LUAR DAERAH',
+                'jenis_layanan' => 'LUAR DAERAH', 
+                'jenis_dokumen' => strtoupper($ld->jenis_dokumen),
+                'pesan' => "LUAR DAERAH: NIK Target: " . $ld->nik_luar_daerah . " | Layanan: " . strtoupper($ld->jenis_dokumen),
+                'tanggapan_admin' => $ld->tanggapan_admin,
+                'is_rejected' => (bool)($ld->is_rejected ?? false),
+                'created_at' => $ld->created_at,
+                'updated_at' => $ld->updated_at,
+                'type' => 'luardaerah',
+                'status' => $ld->status ?? 'pending'
+            ]);
+        }
+
+        $sortedNotifs = $allNotifications->sortByDesc('created_at')->values();
+
+        return view('user.dashboard', [
+            'user' => $user,
+            'kecamatans' => $kecamatans,
+            'allNotifications' => $sortedNotifs,
+            'counts' => $counts,
+            'troubles' => $troubles,
+            'aktivasis' => $aktivasis,
+            'pengajuans' => $pengajuans,
+            'proxies' => $proxies,
+            'pembubuhans' => $pembubuhans,
+            'luardaerahs' => $luardaerahs 
+        ]);
+    }
+
+    /**
+     * 1. FITUR TROUBLE (PC)
+     */
+    public function storeTrouble(Request $request)
+    {
+        $request->validate([
+            'kategori' => 'required|string',
+            'deskripsi' => 'required|string',
+            'foto_trouble' => 'required|array|min:1',
+            'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
+        $filePaths = [];
+        if ($request->hasFile('foto_trouble')) {
+            foreach ($request->file('foto_trouble') as $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('troubles', 'public');
+                    $filePaths[] = $path;
+                }
+            }
+        }
+
+        Trouble::create([
+            'user_id' => Auth::id(),
+            'kategori' => strtoupper(trim($request->kategori)),
+            'deskripsi' => $request->deskripsi,
+            'foto_trouble' => json_encode($filePaths),
+            'status' => 'Pending'
+        ]);
+
+        return back()->with('status', 'Laporan gangguan (PC/Trouble) berhasil dikirim!');
+    }
+
+    /**
+     * 2. FITUR KENDALA SIAK
+     */
+    public function storePengajuan(Request $request)
+    {
+        $request->validate([
+            'kategori_siak' => 'required|string',
+            'deskripsi_siak' => 'required|string', 
+            'foto_dokumen_siak' => 'required|array|min:1',
+            'foto_dokumen_siak.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
+        $filePaths = [];
+        if ($request->hasFile('foto_dokumen_siak')) {
+            foreach ($request->file('foto_dokumen_siak') as $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('pengajuan', 'public');
+                    $filePaths[] = $path;
+                }
+            }
+        }
+
+        Pengajuan::create([
+            'user_id' => Auth::id(),
+            'jenis_registrasi' => 'SIAK', 
+            'kategori' => strtoupper(trim($request->kategori_siak)), 
+            'deskripsi' => $request->deskripsi_siak,
+            'foto_dokumen' => json_encode($filePaths),
+            'status' => 'Pending'
+        ]);
+
+        return back()->with('status', 'Laporan kendala SIAK berhasil dikirim!');
+    }
+
+    /**
+     * 3. FITUR AKTIVASI NIK
+     */
+    public function storeAktivasi(Request $request)
+    {
+        $request->validate([
+            'nama_lengkap' => 'required|string|max:255',
+            'nik_aktivasi' => 'required|numeric|digits:16',
+            'jenis_layanan' => 'required|in:restore,aktivasi', 
+            'alasan'       => 'nullable|string', 
+            'lampiran'     => ($request->jenis_layanan === 'restore' ? 'required' : 'nullable') . '|image|mimes:jpeg,png,jpg|max:5120' 
+        ]);
+
+        $path = null;
+        if ($request->hasFile('lampiran')) {
+            $path = $request->file('lampiran')->store('aktivasi', 'public');
+        }
+
+        Aktivasi::create([
+            'user_id'       => Auth::id(),
+            'nama_lengkap' => $request->nama_lengkap, 
+            'nik_aktivasi' => $request->nik_aktivasi,
+            'jenis_layanan'=> strtolower(trim($request->jenis_layanan)),
+            'alasan'       => $request->alasan,
+            'foto_ktp'     => $path, 
+            'status'       => 'Pending'
+        ]);
+
+        $pesan = $request->jenis_layanan === 'restore' ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK';
+        return back()->with('status', $pesan . ' berhasil dikirim!');
+    }
+
+    /**
+     * 4. FITUR PROXY
+     */
+    public function storeProxy(Request $request)
+    {
+        $request->validate([
+            'deskripsi' => 'nullable|string', 
+            'foto_proxy' => 'required|image|max:2048'
+        ]);
+
+        $path = null;
+        if ($request->hasFile('foto_proxy')) {
+            $path = $request->file('foto_proxy')->store('proxy', 'public');
+        }
+
+        Proxy::create([
+            'user_id' => Auth::id(),
+            'deskripsi' => $request->deskripsi,
+            'foto_proxy' => $path,
+            'status' => 'Pending'
+        ]);
+
+        return back()->with('status', 'Laporan kendala Proxy/Jaringan berhasil dikirim!');
+    }
+
+    /**
+     * 5. FITUR PEMBUBUHAN TTE
+     */
+    public function storePembubuhan(Request $request)
+    {
+        // Tetap menggunakan 'jenis_dokumen' sesuai name di form pembubuhan
+        $request->validate([
+            'nik' => 'required|string',
+            'no_akte' => 'nullable|string', // Diubah ke nullable jika form tidak mewajibkan no_akte
+            'jenis_dokumen' => 'required|string',
+        ]);
+
+        Pembubuhan::create([
+            'user_id' => Auth::id(),
+            'nik' => $request->nik, 
+            'no_akte' => $request->no_akte ?? '-',
+            'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen)),
+            'status' => 'Pending',
+            'is_rejected' => false
+        ]);
+
+        return back()->with('status', 'Permohonan pembubuhan TTE berhasil dikirim!');
+    }
+
+    /**
+     * 6. FITUR LUAR DAERAH
+     */
+    public function storeLuarDaerah(Request $request)
+    {
+        // Menerima 'jenis_dokumen_luar' dari form agar tidak tertukar dengan 'jenis_dokumen' TTE
+        $request->validate([
+            'nik' => 'required|string',
+            'nik_luar_daerah' => 'required|numeric|digits:16',
+            'jenis_dokumen_luar' => 'required|string',
+        ]);
+
+        LuarDaerah::create([
+            'user_id' => Auth::id(),
+            'nik' => $request->nik, 
+            'nik_luar_daerah' => $request->nik_luar_daerah,
+            'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen_luar)),
+            'status' => 'pending',
+            'is_rejected' => false
+        ]);
+
+        return back()->with('status', 'Laporan Luar Daerah berhasil dikirim!');
+    }
+
+    /**
+     * Profil & Keamanan
+     */
+    public function profile()
+    {
+        $data = Auth::user();
+        $kecamatans = Kecamatan::all();
+        return view('user.profile', compact('data', 'kecamatans'));
+    }
+
+    public function updateProfil(Request $request)
+    {
+        $user = Auth::user();
+        
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'location' => 'required|string|max:255',
+            'password' => 'nullable|string|min:8|confirmed',
+        ]);
+
+        $user->name = $request->name;
+        $user->location = $request->location;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+
+        return redirect()->route('user.profile')->with('status', 'Profil dan keamanan berhasil diperbarui!');
+    }
+
+    public function markAsRead($id)
+    {
+        return back()->with('status', 'Notifikasi ditandai sebagai dibaca.');
+    }
+}
