@@ -16,7 +16,7 @@ class Aktivasi extends Model
         'nik_aktivasi',
         'jenis_layanan',
         'alasan',
-        'foto_ktp',
+        'foto_ktp' => 'array',
         'status',
         'tanggapan_admin', 
         'processed_by',

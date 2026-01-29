@@ -18,18 +18,17 @@ class UpdateData extends Model
         'jenis_layanan', 
         'deskripsi', 
         'lampiran', 
-        'status',
+        'status', 
         'tanggapan_admin',
         'processed_by'
     ];
 
     /**
-     * Cast attributes to native types.
-     * Penting: 'array' memastikan data tersimpan sebagai JSON di DB 
-     * dan otomatis menjadi Array saat dipanggil di Controller/Blade.
+     * Cast attributes.
      */
     protected $casts = [
-        'lampiran' => 'array',
+        // 'array' cast otomatis melakukan json_encode/decode
+        'lampiran' => 'array', 
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -43,20 +42,41 @@ class UpdateData extends Model
     }
 
     /**
-     * Helper Methods (Opsional tapi sangat berguna di Blade)
+     * Helper Methods
      */
     public function isPending() 
     { 
-        return strtolower($this->status) === 'pending'; 
+        // Menggunakan trim() untuk memastikan string kosong tetap dianggap pending
+        return empty(trim($this->tanggapan_admin)) && ($this->status === 'pending' || is_null($this->status)); 
     }
 
     public function isApproved() 
     { 
-        return strtolower($this->status) === 'approved'; 
+        return $this->status === 'selesai' || !empty(trim($this->tanggapan_admin)); 
     }
 
     public function isRejected() 
     { 
-        return strtolower($this->status) === 'rejected'; 
+        return $this->status === 'ditolak'; 
+    }
+
+    /**
+     * Aksesor Lampiran
+     * Penting: Di Controller Anda memanggil $item->foto_ktp.
+     * Kita tambahkan aksesor agar Controller tidak error saat mencari 'foto_ktp'.
+     */
+    public function getFotoKtpAttribute()
+    {
+        return $this->getFirstLampiranAttribute();
+    }
+
+    public function getFirstLampiranAttribute()
+    {
+        // Pastikan lampiran didecode menjadi array
+        $files = $this->lampiran;
+        if (is_array($files) && count($files) > 0) {
+            return $files[0];
+        }
+        return null;
     }
 }

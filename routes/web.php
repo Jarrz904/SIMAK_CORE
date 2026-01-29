@@ -88,7 +88,8 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
              * Menggunakan Route::match untuk mendukung GET dan POST sekaligus.
              * Ini mencegah error 'Method Not Allowed' saat form dikirim via POST.
              */
-            Route::match(['get', 'post'], '/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
+            Route::get('/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
+            Route::post('/export-aktivasi', [AdminController::class, 'exportAktivasi']);
         });
 
         // --- ROUTE MANAJEMEN PENGUMUMAN ---
@@ -103,6 +104,13 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     // ==========================================
     Route::middleware('role:user')->group(function () {
         Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
+        
+        /**
+         * PERBAIKAN: Menambahkan rute user.profile
+         * Ini untuk menangani error "Route [user.profile] not defined"
+         */
+        Route::get('/user/profile', [UserController::class, 'index'])->name('user.profile'); // Diarahkan ke dashboard karena profil biasanya ada di sana
+        
         Route::put('/profile/update', [UserController::class, 'updateProfil'])->name('user.profile.update');
         Route::post('/user/notifikasi/{id}/read', [UserController::class, 'markAsRead'])->name('user.notif.read');
 

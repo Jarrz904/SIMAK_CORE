@@ -179,7 +179,7 @@
                         let count = 0;
                         @foreach($allNotifications as $n)
                             @php 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        $nId = $n->id ?? ($n->_id ?? null);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                $nId = $n->id ?? ($n->_id ?? null);
                                 $tanggapanAdmin = $n->tanggapan_admin ?? ($n->tanggapan ?? null);
                             @endphp
                             @if(!empty($tanggapanAdmin) && $nId)
@@ -591,18 +591,18 @@
                                                     $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? $hist->jenis_layanan ?? '-';
                                                 @endphp
                                                 <div @click="selectedNotif = { 
-                                                    id: '{{ $hist->id ?? rand(1000, 9999) }}',
-                                                    kategori: '{{ $style['label'] }}', 
-                                                    kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
-                                                    jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
-                                                    jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
-                                                    pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
-                                                    tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
-                                                    full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
-                                                    has_response: {{ $histHasResp ? 'true' : 'false' }},
-                                                    status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
-                                                    icon: '{{ $style['icon'] }}'
-                                                }; showDetail = true;"
+                                                                            id: '{{ $hist->id ?? rand(1000, 9999) }}',
+                                                                            kategori: '{{ $style['label'] }}', 
+                                                                            kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
+                                                                            jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
+                                                                            jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
+                                                                            pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
+                                                                            tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
+                                                                            full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
+                                                                            has_response: {{ $histHasResp ? 'true' : 'false' }},
+                                                                            status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
+                                                                            icon: '{{ $style['icon'] }}'
+                                                                        }; showDetail = true;"
                                                     class="group/item bg-white p-2 rounded-xl text-[10px] border border-slate-100 flex justify-between items-center cursor-pointer hover:border-slate-300 transition-all">
                                                     <div class="flex items-center gap-2">
                                                         <span
@@ -733,6 +733,7 @@
                         </template>
                     </div>
                 </div>
+
 
                 <div x-show="tab === 'registrasi'" x-transition x-cloak>
                     <div
@@ -1167,7 +1168,7 @@
                 </div>
 
 
-                <div x-show="tab === 'aktivasi'" x-transition x-cloak x-data="{ jenisLayanan: '', fileName: '' }">
+                <div x-show="tab === 'aktivasi'" x-transition x-cloak x-data="{ jenisLayanan: '', fileCount: 0 }">
                     <div
                         class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
                         <div class="flex items-center space-x-3 mb-6">
@@ -1222,40 +1223,50 @@
                                 <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
                                     Tangkapan Layar / Foto Dokumen
                                     <template x-if="jenisLayanan === 'restore'">
-                                        <span class="text-red-500 font-black">(WAJIB)</span>
+                                        <span class="text-red-500 font-black">(WAJIB - BISA LEBIH DARI 1)</span>
                                     </template>
                                 </label>
 
                                 <div class="relative group">
-                                    <input type="file" name="lampiran" :required="jenisLayanan === 'restore'"
-                                        @change="fileName = $event.target.files[0].name"
+                                    <input type="file" name="lampiran[]" id="lampiran_aktivasi"
+                                        :required="jenisLayanan === 'restore'" multiple
+                                        @change="fileCount = $event.target.files.length"
                                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
 
                                     <div class="w-full border-2 border-dashed rounded-[1.5rem] p-4 md:p-8 transition-all flex flex-col items-center justify-center"
-                                        :class="fileName ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
+                                        :class="fileCount > 0 ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
 
-                                        <div x-show="!fileName" class="flex flex-col items-center space-y-2">
+                                        <div x-show="fileCount === 0" class="flex flex-col items-center space-y-2">
                                             <div
                                                 class="w-10 h-10 md:w-16 md:h-16 bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 transition-colors">
                                                 <i class="fas fa-camera text-xl md:text-2xl"></i>
                                             </div>
                                             <p
                                                 class="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                                                Klik Untuk Unggah Foto</p>
+                                                Klik Untuk Unggah Foto (Bisa Pilih Banyak)
+                                            </p>
                                         </div>
 
-                                        <div x-show="fileName"
+                                        <div x-show="fileCount > 0"
                                             class="flex flex-col items-center space-y-2 w-full text-center">
-                                            <i class="fas fa-file-image text-orange-600 text-xl"></i>
-                                            <p class="text-[10px] font-black text-orange-600 truncate max-w-[200px]"
-                                                x-text="fileName"></p>
+                                            <div
+                                                class="w-10 h-10 md:w-16 md:h-16 bg-orange-100 rounded-xl md:rounded-2xl flex items-center justify-center text-orange-600">
+                                                <i class="fas fa-images text-xl md:text-2xl"></i>
+                                            </div>
+                                            <p class="text-[10px] font-black text-orange-600 uppercase">
+                                                <span x-text="fileCount"></span> File Berhasil Dipilih
+                                            </p>
                                             <div
                                                 class="bg-slate-900 text-white px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest">
-                                                <i class="fas fa-sync-alt mr-1"></i> Ganti
+                                                <i class="fas fa-sync-alt mr-1"></i> Ganti Foto
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                <p class="text-[7px] md:text-[8px] text-slate-400 font-bold uppercase italic">
+                                    * Gunakan tombol Ctrl (Windows) atau Command (Mac) untuk memilih beberapa foto
+                                    sekaligus.
+                                </p>
                             </div>
 
                             <div class="space-y-1">
@@ -1275,122 +1286,135 @@
                 </div>
 
 
-               <div x-show="tab === 'update_data'" x-transition x-cloak
-    x-data="{ jenisLayanan: '', fileCount: 0, files: [] }">
-    <div class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div x-show="tab === 'update_data'" x-transition x-cloak
+                    x-data="{ jenisLayanan: '', fileCount: 0, files: [] }">
+                    <div
+                        class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
 
-        <div class="flex items-center space-x-3 mb-6">
-            <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 text-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                <i class="fas fa-user-edit text-sm md:text-base"></i>
-            </div>
-            <h2 class="text-base md:text-xl font-black uppercase italic">Permohonan Update Data</h2>
-        </div>
-
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6">
-            <p class="text-[8px] md:text-[10px] text-blue-700 font-black leading-tight uppercase">
-                <i class="fas fa-info-circle mr-1"></i> Ajukan perubahan elemen data kependudukan jika terdapat kesalahan.
-            </p>
-        </div>
-
-        {{-- Tampilkan Error Validasi Jika Ada --}}
-        @if ($errors->any())
-            <div class="mb-4 p-3 bg-red-100 border-l-4 border-red-500 rounded text-red-700 text-[10px] font-bold uppercase">
-                <ul>
-                    @foreach ($errors->all() as $error)
-                        <li><i class="fas fa-exclamation-triangle mr-1"></i> {{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
-        <form action="{{ route('update-data.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4 md:space-y-6">
-            @csrf
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
-                <div class="space-y-1">
-                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Nama Pelapor</label>
-                    <input type="text" value="{{ Auth::user()->name ?? '' }}" readonly
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm font-semibold transition-all text-slate-500">
-                </div>
-
-                <div class="space-y-1">
-                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">NIK Pemohon (16 Digit)</label>
-                    <input type="number" name="nik_pemohon" required 
-                        value="{{ old('nik_pemohon') }}"
-                        {{-- Mencegah input lebih dari 16 digit --}}
-                        onkeypress="if(this.value.length==16) return false;"
-                        oninput="if (this.value.length > 16) this.value = this.value.slice(0, 16)"
-                        placeholder="Masukkan 16 digit NIK"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
-                </div>
-            </div>
-
-            <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Jenis Perubahan</label>
-                <select name="kategori_update" required x-model="jenisLayanan"
-                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
-                    <option value="" disabled selected>-- Pilih Perubahan Data --</option>
-                    <option value="UPDATE NAMA">PERUBAHAN NAMA</option>
-                    <option value="UPDATE TANGGAL LAHIR">PERUBAHAN TANGGAL LAHIR</option>
-                    <option value="UPDATE AGAMA">PERUBAHAN AGAMA</option>
-                    <option value="UPDATE JENIS KELAMIN">PERUBAHAN JENIS KELAMIN</option>
-                    <option value="UPDATE GOLONGAN DARAH">PERUBAHAN GOLONGAN DARAH</option>
-                </select>
-            </div>
-
-            <div class="space-y-3">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
-                    Unggah Lampiran <span class="text-red-500">(WAJIB - Gambar)</span>
-                </label>
-
-                <div class="relative group">
-                    <input type="file" name="lampiran_update[]" multiple required
-                        accept="image/*"
-                        @change="fileCount = $event.target.files.length; files = Array.from($event.target.files).map(f => URL.createObjectURL(f))"
-                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
-
-                    <div class="w-full border-2 border-dashed rounded-[1.5rem] p-4 md:p-6 transition-all flex flex-col items-center justify-center"
-                        :class="fileCount > 0 ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
-
-                        <div x-show="fileCount === 0" class="flex flex-col items-center space-y-2">
-                            <div class="w-10 h-10 md:w-16 md:h-16 bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 transition-colors">
-                                <i class="fas fa-camera text-xl md:text-2xl"></i>
+                        <div class="flex items-center space-x-3 mb-6">
+                            <div
+                                class="w-8 h-8 md:w-10 md:h-10 bg-blue-100 text-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                                <i class="fas fa-user-edit text-sm md:text-base"></i>
                             </div>
-                            <p class="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                                Klik Unggah Dokumen (Bisa lebih dari 1)
+                            <h2 class="text-base md:text-xl font-black uppercase italic">Permohonan Update Data</h2>
+                        </div>
+
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6">
+                            <p class="text-[8px] md:text-[10px] text-blue-700 font-black leading-tight uppercase">
+                                <i class="fas fa-info-circle mr-1"></i> Ajukan perubahan elemen data kependudukan jika
+                                terdapat kesalahan.
                             </p>
                         </div>
 
-                        <div x-show="fileCount > 0" class="w-full flex flex-col items-center space-y-4">
-                            <div class="flex flex-wrap justify-center gap-2 md:gap-3">
-                                <template x-for="(file, index) in files" :key="index">
-                                    <div class="relative">
-                                        <div class="w-10 h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-orange-200 overflow-hidden bg-white shadow-sm">
-                                            <img :src="file" class="w-full h-full object-cover">
+                        {{-- Tampilkan Error Validasi Jika Ada --}}
+                        @if ($errors->any())
+                            <div
+                                class="mb-4 p-3 bg-red-100 border-l-4 border-red-500 rounded text-red-700 text-[10px] font-bold uppercase">
+                                <ul>
+                                    @foreach ($errors->all() as $error)
+                                        <li><i class="fas fa-exclamation-triangle mr-1"></i> {{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        <form action="{{ route('update-data.store') }}" method="POST" enctype="multipart/form-data"
+                            class="space-y-4 md:space-y-6">
+                            @csrf
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Nama
+                                        Pelapor</label>
+                                    <input type="text" value="{{ Auth::user()->name ?? '' }}" readonly
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm font-semibold transition-all text-slate-500">
+                                </div>
+
+                                <div class="space-y-1">
+                                    <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">NIK Pemohon
+                                        (16 Digit)</label>
+                                    <input type="number" name="nik_pemohon" required value="{{ old('nik_pemohon') }}"
+                                        {{-- Mencegah input lebih dari 16 digit --}}
+                                        onkeypress="if(this.value.length==16) return false;"
+                                        oninput="if (this.value.length > 16) this.value = this.value.slice(0, 16)"
+                                        placeholder="Masukkan 16 digit NIK"
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Jenis
+                                    Perubahan</label>
+                                <select name="kategori_update" required x-model="jenisLayanan"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
+                                    <option value="" disabled selected>-- Pilih Perubahan Data --</option>
+                                    <option value="UPDATE NAMA">PERUBAHAN NAMA</option>
+                                    <option value="UPDATE TANGGAL LAHIR">PERUBAHAN TANGGAL LAHIR</option>
+                                    <option value="UPDATE AGAMA">PERUBAHAN AGAMA</option>
+                                    <option value="UPDATE JENIS KELAMIN">PERUBAHAN JENIS KELAMIN</option>
+                                    <option value="UPDATE GOLONGAN DARAH">PERUBAHAN GOLONGAN DARAH</option>
+                                </select>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
+                                    Unggah Lampiran <span class="text-red-500">(WAJIB - Gambar)</span>
+                                </label>
+
+                                <div class="relative group">
+                                    <input type="file" name="lampiran_update[]" multiple required accept="image/*"
+                                        @change="fileCount = $event.target.files.length; files = Array.from($event.target.files).map(f => URL.createObjectURL(f))"
+                                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+
+                                    <div class="w-full border-2 border-dashed rounded-[1.5rem] p-4 md:p-6 transition-all flex flex-col items-center justify-center"
+                                        :class="fileCount > 0 ? 'border-orange-400 bg-orange-50/30' : 'border-slate-200 group-hover:border-blue-400 group-hover:bg-blue-50/50'">
+
+                                        <div x-show="fileCount === 0" class="flex flex-col items-center space-y-2">
+                                            <div
+                                                class="w-10 h-10 md:w-16 md:h-16 bg-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 transition-colors">
+                                                <i class="fas fa-camera text-xl md:text-2xl"></i>
+                                            </div>
+                                            <p
+                                                class="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                                                Klik Unggah Dokumen (Bisa lebih dari 1)
+                                            </p>
+                                        </div>
+
+                                        <div x-show="fileCount > 0" class="w-full flex flex-col items-center space-y-4">
+                                            <div class="flex flex-wrap justify-center gap-2 md:gap-3">
+                                                <template x-for="(file, index) in files" :key="index">
+                                                    <div class="relative">
+                                                        <div
+                                                            class="w-10 h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-orange-200 overflow-hidden bg-white shadow-sm">
+                                                            <img :src="file" class="w-full h-full object-cover">
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <p class="text-[10px] font-black text-orange-600 uppercase italic"
+                                                x-text="fileCount + ' File Terpilih'"></p>
                                         </div>
                                     </div>
-                                </template>
+                                </div>
                             </div>
-                            <p class="text-[10px] font-black text-orange-600 uppercase italic" x-text="fileCount + ' File Terpilih'"></p>
-                        </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Deskripsi /
+                                    Alasan <span class="text-red-500">*</span></label>
+                                <textarea name="alasan_update" required rows="2"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all"
+                                    placeholder="Contoh: Perubahan nama sesuai akta kelahiran...">{{ old('alasan_update') }}</textarea>
+                            </div>
+
+                            <button type="submit"
+                                class="w-full bg-blue-600 text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
+                                KIRIM PERMINTAAN <span x-text="jenisLayanan.replace('UPDATE ', '')"></span>
+                            </button>
+                        </form>
                     </div>
                 </div>
-            </div>
 
-            <div class="space-y-1">
-                <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Deskripsi / Alasan <span class="text-red-500">*</span></label>
-                <textarea name="alasan_update" required rows="2"
-                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all"
-                    placeholder="Contoh: Perubahan nama sesuai akta kelahiran...">{{ old('alasan_update') }}</textarea>
-            </div>
 
-            <button type="submit"
-                class="w-full bg-blue-600 text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
-                KIRIM PERMINTAAN <span x-text="jenisLayanan.replace('UPDATE ', '')"></span>
-            </button>
-        </form>
-    </div>
-</div>
                 <div x-show="tab === 'proxy'" x-transition x-cloak>
                     <div
                         class="bg-indigo-600 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">

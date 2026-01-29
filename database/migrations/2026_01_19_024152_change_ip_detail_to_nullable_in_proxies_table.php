@@ -5,22 +5,28 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('proxies', function (Blueprint $table) {
-            // Mengubah kolom menjadi nullable
-            $table->string('ip_detail')->nullable()->change();
-        });
+        // Cek apakah tabel proxies ada
+        if (Schema::hasTable('proxies')) {
+            Schema::table('proxies', function (Blueprint $table) {
+                // Cek apakah kolom ip_detail benar-benar ada sebelum diubah
+                if (Schema::hasColumn('proxies', 'ip_detail')) {
+                    $table->string('ip_detail')->nullable()->change();
+                } else {
+                    // Jika kolom tidak ada, buat baru saja agar sistem tidak error
+                    $table->string('ip_detail')->nullable();
+                }
+            });
+        }
     }
 
     public function down(): void
     {
         Schema::table('proxies', function (Blueprint $table) {
-            // Kembalikan ke tidak boleh null jika diperlukan rollback
-            $table->string('ip_detail')->nullable(false)->change();
+            if (Schema::hasColumn('proxies', 'ip_detail')) {
+                $table->string('ip_detail')->nullable(false)->change();
+            }
         });
     }
 };

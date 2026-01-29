@@ -267,7 +267,7 @@ class UserController extends Controller
     }
 
     /**
-     * 3. FITUR AKTIVASI NIK
+     * 3. FITUR AKTIVASI NIK (DIPERBARUI UNTUK MULTIPLE FOTO)
      */
     public function storeAktivasi(Request $request)
     {
@@ -276,21 +276,32 @@ class UserController extends Controller
             'nik_aktivasi' => 'required|numeric|digits:16',
             'jenis_layanan' => 'required|in:restore,aktivasi', 
             'alasan'       => 'nullable|string', 
-            'lampiran'     => ($request->jenis_layanan === 'restore' ? 'required' : 'nullable') . '|image|mimes:jpeg,png,jpg|max:5120' 
+            // Validasi: Jika restore wajib ada lampiran array min 1, jika aktivasi boleh kosong
+            'lampiran'     => ($request->jenis_layanan === 'restore' ? 'required' : 'nullable') . '|array',
+            'lampiran.*'   => 'image|mimes:jpeg,png,jpg|max:5120' 
+        ], [
+            'lampiran.required' => 'Untuk layanan Restore Data, Anda wajib mengunggah minimal satu lampiran gambar.',
+            'lampiran.array'    => 'Format lampiran tidak valid.',
         ]);
 
-        $path = null;
+        $filePaths = [];
         if ($request->hasFile('lampiran')) {
-            $path = $request->file('lampiran')->store('aktivasi', 'public');
+            foreach ($request->file('lampiran') as $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('aktivasi', 'public');
+                    $filePaths[] = $path;
+                }
+            }
         }
 
         Aktivasi::create([
-            'user_id'       => Auth::id(),
+            'user_id'      => Auth::id(),
             'nama_lengkap' => $request->nama_lengkap, 
             'nik_aktivasi' => $request->nik_aktivasi,
             'jenis_layanan'=> strtolower(trim($request->jenis_layanan)),
             'alasan'       => $request->alasan,
-            'foto_ktp'     => $path, 
+            // Simpan sebagai JSON agar bisa menampung banyak foto seperti fitur Trouble
+            'foto_ktp'     => !empty($filePaths) ? json_encode($filePaths) : null, 
             'status'       => 'Pending'
         ]);
 
