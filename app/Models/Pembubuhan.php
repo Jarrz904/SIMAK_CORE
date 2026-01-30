@@ -15,6 +15,7 @@ class Pembubuhan extends Model
     protected $fillable = [
         'user_id',
         'nik',
+        'nik_pemohon',
         'jenis_dokumen',
         'tanggapan_admin',
         'status',

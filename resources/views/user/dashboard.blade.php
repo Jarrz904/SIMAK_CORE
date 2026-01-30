@@ -179,7 +179,7 @@
                         let count = 0;
                         @foreach($allNotifications as $n)
                             @php 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                $nId = $n->id ?? ($n->_id ?? null);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        $nId = $n->id ?? ($n->_id ?? null);
                                 $tanggapanAdmin = $n->tanggapan_admin ?? ($n->tanggapan ?? null);
                             @endphp
                             @if(!empty($tanggapanAdmin) && $nId)
@@ -370,54 +370,59 @@
                                 $notifications = collect($allNotifications ?? []);
 
                                 $targetKategori = [
-                                    'NIK' => [
-                                        'label' => 'Aktivasi NIK',
-                                        'icon' => 'fa-id-badge',
-                                        'color' => 'text-emerald-600',
-                                        'bg' => 'bg-emerald-50',
-                                        'keywords' => ['NIK', 'AKTIVASI', 'RESTORE']
-                                    ],
-                                    'DOKUMEN' => [
+
+                                    'KENDALA SIAK' => [
                                         'label' => 'Kendala SIAK',
                                         'icon' => 'fa-database',
                                         'color' => 'text-purple-600',
                                         'bg' => 'bg-purple-50',
-                                        'keywords' => ['SIAK', 'LOGIN SIAK', 'ERROR SIAK', 'DATABASE SIAK']
+                                        'keywords' => ['SIAK', 'REGISTRASI SIAK', 'APLIKASI EROR SIAK', ' APLIKASI SIAK', 'GAGAL LOGIN SIAK']
                                     ],
-                                    'UPDATE' => [
+                                    // Bagian Pembubuhan TTE
+                                    'PEMBUBUHAN' => [
+                                        'label' => 'Pembubuhan TTE',
+                                        'icon' => 'fa-file-signature',
+                                        'color' => 'text-rose-600',
+                                        'bg' => 'bg-rose-50',
+                                        // Pastikan keywords ini unik untuk Pembubuhan saja
+                                        'keywords' => ['PEMBUBUHAN', 'AKTA KELAHIRAN', 'AKTA KEMATIAN', 'KARTU KELUARGA', 'SURAT KETERANGAN PINDAH', 'BIODATA WNI']
+                                    ],
+                                    'LUAR_CARD' => [
+                                        'label' => 'Luar Daerah',
+                                        'icon' => 'fa-map-marked-alt',
+                                        'color' => 'text-blue-600',
+                                        'bg' => 'bg-blue-50',
+                                        'keywords' => ['PINDAH DATANG', 'PEMBARUAN DATA LUAR', 'KONSOLIDASI MANUAL', 'REKAM KTP', 'CETAK KTP']
+                                    ],
+                                    // Bagian Aktivasi NIK (PERBAIKI DI SINI)
+                                    'AKTIVASI' => [
+                                        'label' => 'Aktivasi NIK',
+                                        'icon' => 'fa-id-card',
+                                        'color' => 'text-blue-600',
+                                        'bg' => 'bg-blue-50',
+                                        // JANGAN masukkan 'AKTA KELAHIRAN' dsb di sini agar tidak menyala saat pembubuhan dikirim
+                                        'keywords' => ['AKTIVASI', 'RESTORE']
+                                    ],
+                                    'UPDATE DATA' => [
                                         'label' => 'Update Data',
                                         'icon' => 'fa-user-edit',
                                         'color' => 'text-cyan-600',
                                         'bg' => 'bg-cyan-50',
-                                        'keywords' => ['UPDATE DATA', 'PERUBAHAN DATA', 'ELEMEN DATA', 'GANTI DATA']
-                                    ],
-                                    'PC' => [
-                                        'label' => 'Aktivitas Trouble',
-                                        'icon' => 'fa-exclamation-triangle',
-                                        'color' => 'text-amber-600',
-                                        'bg' => 'bg-amber-50',
-                                        'keywords' => ['PC', 'KOMPUTER', 'HARDWARE', 'PRINTER', 'GANGGUAN', 'TROUBLE']
+                                        'keywords' => ['PERUBAHAN NAMA', 'PERUBAHAN TANGGAL LAHIR', 'PERUBAHAN AGAMA', 'PERUBAHAN JENIS KELAMIN', 'PERUBAHAN GOLONGAN DARAH']
                                     ],
                                     'PROXY' => [
                                         'label' => 'Laporan Proxy',
                                         'icon' => 'fa-server',
                                         'color' => 'text-indigo-600',
                                         'bg' => 'bg-indigo-50',
-                                        'keywords' => ['PROXY', 'JARINGAN', 'IP', 'INTERNET', 'KENDALA IP']
+                                        'keywords' => ['PROXY']
                                     ],
-                                    'TTE' => [
-                                        'label' => 'Pembubuhan TTE',
-                                        'icon' => 'fa-file-signature',
-                                        'color' => 'text-rose-600',
-                                        'bg' => 'bg-rose-50',
-                                        'keywords' => ['AKTA', 'MATI', 'LAHIR', 'BUBUH', 'TTE', 'PEMBUBUHAN']
-                                    ],
-                                    'LUAR' => [
-                                        'label' => 'Laporan Luar Daerah',
-                                        'icon' => 'fa-map-marked-alt',
-                                        'color' => 'text-blue-600',
-                                        'bg' => 'bg-blue-50',
-                                        'keywords' => ['LUAR', 'DAERAH', 'PINDAH', 'KONSOLIDASI', 'REKAM', 'CETAK']
+                                    'TROUBLE' => [
+                                        'label' => 'Aktivitas Trouble',
+                                        'icon' => 'fa-exclamation-triangle',
+                                        'color' => 'text-amber-600',
+                                        'bg' => 'bg-amber-50',
+                                        'keywords' => ['TROUBLE', 'KOMPUTER/PC', 'PERANGKAT PENDUKUNG', 'JARINGAN']
                                     ],
                                 ];
 
@@ -591,18 +596,18 @@
                                                     $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? $hist->jenis_layanan ?? '-';
                                                 @endphp
                                                 <div @click="selectedNotif = { 
-                                                                            id: '{{ $hist->id ?? rand(1000, 9999) }}',
-                                                                            kategori: '{{ $style['label'] }}', 
-                                                                            kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
-                                                                            jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
-                                                                            jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
-                                                                            pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
-                                                                            tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
-                                                                            full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
-                                                                            has_response: {{ $histHasResp ? 'true' : 'false' }},
-                                                                            status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
-                                                                            icon: '{{ $style['icon'] }}'
-                                                                        }; showDetail = true;"
+                                                                                                                                                                                                    id: '{{ $hist->id ?? rand(1000, 9999) }}',
+                                                                                                                                                                                                    kategori: '{{ $style['label'] }}', 
+                                                                                                                                                                                                    kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
+                                                                                                                                                                                                    jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
+                                                                                                                                                                                                    jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
+                                                                                                                                                                                                    pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
+                                                                                                                                                                                                    tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
+                                                                                                                                                                                                    full_date: '{{ $dtHist->translatedFormat('d F Y • H:i') }} WIB',
+                                                                                                                                                                                                    has_response: {{ $histHasResp ? 'true' : 'false' }},
+                                                                                                                                                                                                    status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
+                                                                                                                                                                                                    icon: '{{ $style['icon'] }}'
+                                                                                                                                                                                                }; showDetail = true;"
                                                     class="group/item bg-white p-2 rounded-xl text-[10px] border border-slate-100 flex justify-between items-center cursor-pointer hover:border-slate-300 transition-all">
                                                     <div class="flex items-center gap-2">
                                                         <span
@@ -656,34 +661,30 @@
 
                                         <div class="space-y-4">
                                             <div class="grid grid-cols-1 gap-2">
-                                                <template x-if="selectedNotif.kategori_asli">
+                                                {{-- Kategori Masalah --}}
+                                                <template
+                                                    x-if="selectedNotif.kategori_asli || selectedNotif.group_key === 'LUAR_CARD'">
                                                     <div
                                                         class="px-4 py-3 bg-blue-50 border border-blue-100 rounded-2xl">
                                                         <p
                                                             class="text-[8px] font-black text-blue-400 uppercase leading-none mb-1">
                                                             Kategori Masalah:</p>
                                                         <p class="text-blue-900 text-xs font-bold"
-                                                            x-text="selectedNotif.kategori_asli"></p>
+                                                            x-text="selectedNotif.kategori_asli || 'LUAR DAERAH'"></p>
                                                     </div>
                                                 </template>
-                                                <template x-if="selectedNotif.jenis_layanan">
+
+                                                {{-- Jenis Layanan / Dokumen --}}
+                                                <template
+                                                    x-if="selectedNotif.jenis_layanan || selectedNotif.jenis_dokumen">
                                                     <div
                                                         class="px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
                                                         <p
                                                             class="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">
                                                             Jenis Layanan:</p>
                                                         <p class="text-indigo-900 text-xs font-bold"
-                                                            x-text="selectedNotif.jenis_layanan"></p>
-                                                    </div>
-                                                </template>
-                                                <template x-if="selectedNotif.jenis_dokumen">
-                                                    <div
-                                                        class="px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                                                        <p
-                                                            class="text-[8px] font-black text-emerald-400 uppercase leading-none mb-1">
-                                                            Jenis Dokumen:</p>
-                                                        <p class="text-emerald-900 text-xs font-bold"
-                                                            x-text="selectedNotif.jenis_dokumen"></p>
+                                                            x-text="selectedNotif.jenis_layanan || selectedNotif.jenis_dokumen">
+                                                        </p>
                                                     </div>
                                                 </template>
                                             </div>
@@ -911,30 +912,46 @@
                                 @csrf
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {{-- NIK USER: Otomatis dari akun login --}}
                                     <div>
-                                        <label
-                                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
-                                            NIK Pemohon
+                                        <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2">
+                                            NIK Akun (Pelapor)
                                         </label>
                                         <input type="text" name="nik" value="{{ auth()->user()->nik }}" readonly
                                             class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-sm text-slate-500 outline-none cursor-not-allowed">
                                     </div>
+
+                                    {{-- NIK PEMOHON: Diisi manual --}}
+                                    <div>
+                                        <label class="text-[10px] font-black text-slate-800 uppercase ml-2 block mb-2">
+                                            NIK Pemohon (Sesuai Dokumen)
+                                        </label>
+                                        <input type="text" name="nik_pemohon" required maxlength="16"
+                                            value="{{ old('nik_pemohon') }}"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 transition-all @error('nik_pemohon') border-red-500 @enderror"
+                                            placeholder="Masukkan 16 digit NIK"
+                                            onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                                        @error('nik_pemohon')
+                                            <p class="text-red-500 text-[10px] font-bold mt-1 ml-2 uppercase italic">
+                                                {{ $message }}
+                                            </p>
+                                        @enderror
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <label
-                                        class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                    <label class="text-[10px] font-black text-slate-800 uppercase ml-2 block mb-2">
                                         Jenis Dokumen (Pengajuan TTE)
                                     </label>
                                     <div class="relative">
                                         <select name="jenis_dokumen" required
-                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 appearance-none transition-all">
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 appearance-none transition-all @error('jenis_dokumen') border-red-500 @enderror">
                                             <option value="" disabled selected>-- Pilih Jenis Dokumen --</option>
-                                            <option value="AKTA KELAHIRAN">Akta Kelahiran</option>
-                                            <option value="AKTA KEMATIAN">Akta Kematian</option>
-                                            <option value="KARTU KELUARGA">Kartu Keluarga</option>
-                                            <option value="SURAT KETERANGAN PINDAH">Surat Keterangan Pindah</option>
-                                            <option value="BIODATA WNI">Biodata WNI</option>
+                                            <option value="AKTA KELAHIRAN" {{ old('jenis_dokumen') == 'AKTA KELAHIRAN' ? 'selected' : '' }}>AKTA KELAHIRAN</option>
+                                            <option value="AKTA KEMATIAN" {{ old('jenis_dokumen') == 'AKTA KEMATIAN' ? 'selected' : '' }}>AKTA KEMATIAN</option>
+                                            <option value="KARTU KELUARGA" {{ old('jenis_dokumen') == 'KARTU KELUARGA' ? 'selected' : '' }}>KARTU KELUARGA</option>
+                                            <option value="SURAT KETERANGAN PINDAH" {{ old('jenis_dokumen') == 'SURAT KETERANGAN PINDAH' ? 'selected' : '' }}>SURAT KETERANGAN PINDAH</option>
+                                            <option value="BIODATA WNI" {{ old('jenis_dokumen') == 'BIODATA WNI' ? 'selected' : '' }}>BIODATA WNI</option>
                                         </select>
                                         <div
                                             class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
@@ -949,12 +966,13 @@
                                 </div>
 
                                 <button type="submit" :disabled="isProcessingTTE"
-                                    :class="isProcessingTTE ? 'bg-slate-400' : 'bg-slate-900 hover:bg-orange-600 shadow-slate-200'"
+                                    :class="isProcessingTTE ? 'bg-slate-400' : 'bg-slate-900 hover:bg-rose-600 shadow-slate-200'"
                                     class="w-full text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all mt-4 flex items-center justify-center gap-3">
 
                                     <template x-if="!isProcessingTTE">
-                                        <span><i class="fas fa-paper-plane mr-1"></i> Kirim Permohonan Pembubuhan
-                                            TTE</span>
+                                        <span class="flex items-center gap-2">
+                                            <i class="fas fa-paper-plane"></i> Kirim Permohonan Pembubuhan TTE
+                                        </span>
                                     </template>
 
                                     <template x-if="isProcessingTTE">
@@ -967,10 +985,9 @@
                         </div>
 
                         <i
-                            class="fas fa-file-signature absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50"></i>
+                            class="fas fa-file-signature absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50 -z-0"></i>
                     </div>
                 </div>
-
 
                 <div x-show="tab === 'luardaerah'" x-transition:enter="transition ease-out duration-300"
                     x-transition:enter-start="opacity-0 transform scale-95"
@@ -980,12 +997,13 @@
                         class="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] text-slate-900 shadow-sm border border-slate-100 relative overflow-hidden">
 
                         <div class="relative z-10">
-                            <h2 class="text-xl md:text-2xl font-black mb-2 uppercase italic text-slate-800">Layanan Luar
-                                Daerah</h2>
+                            <h2 class="text-xl md:text-2xl font-black mb-2 uppercase italic text-slate-800">
+                                Layanan Luar Daerah
+                            </h2>
                             <p
                                 class="text-[10px] text-slate-500 mb-8 max-w-lg leading-relaxed font-bold uppercase tracking-wide">
                                 Gunakan formulir ini untuk melaporkan atau mengajukan dokumen kependudukan yang berasal
-                                dari luar daerah.
+                                dari luar daerah. Data akan diproses dengan kategori khusus Luar Daerah.
                             </p>
 
                             <form action="{{ route('user.luardaerah.store') }}" method="POST" class="space-y-4"
@@ -996,8 +1014,7 @@
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label
-                                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2">
                                             NIK User (Otomatis)
                                         </label>
                                         <input type="text" name="nik" value="{{ auth()->user()->nik }}" readonly
@@ -1010,8 +1027,7 @@
                                     </div>
 
                                     <div>
-                                        <label
-                                            class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2">
                                             NIK Pemohon Luar Daerah
                                         </label>
                                         <input type="text" name="nik_luar_daerah" required maxlength="16"
@@ -1028,26 +1044,26 @@
                                 </div>
 
                                 <div>
-                                    <label
-                                        class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2 text-slate-800">
-                                        Jenis Dokumen / Layanan Luar Daerah
+                                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-2">
+                                        Pilih Jenis Layanan Luar Daerah
                                     </label>
                                     <div class="relative">
-                                        <select name="jenis_dokumen" required
+                                        <select name="jenis_dokumen_luar" required
                                             class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:bg-white focus:border-slate-800 outline-none font-bold text-sm text-slate-800 appearance-none transition-all">
                                             <option value="" disabled selected>-- Pilih Layanan Luar Daerah --</option>
-                                            <option value="PINDAH" {{ old('jenis_dokumen') == 'PINDAH' ? 'selected' : '' }}>Pindah Datang (Luar Daerah)</option>
-                                            <option value="KONSOLIDASI" {{ old('jenis_dokumen') == 'KONSOLIDASI' ? 'selected' : '' }}>Konsolidasi Manual</option>
-                                            <option value="UPDATE" {{ old('jenis_dokumen') == 'UPDATE' ? 'selected' : '' }}>Update Data Luar</option>
-                                            <option value="REKAM_KTP" {{ old('jenis_dokumen') == 'REKAM_KTP' ? 'selected' : '' }}>Rekam KTP</option>
-                                            <option value="CETAK_KTP" {{ old('jenis_dokumen') == 'CETAK_KTP' ? 'selected' : '' }}>Cetak KTP</option>
+                                            <option value="PINDAH DATANG" {{ old('jenis_dokumen_luar') == 'PINDAH DATANG' ? 'selected' : '' }}>Pindah Datang (Luar Daerah)</option>
+                                            <option value="KONSOLIDASI MANUAL" {{ old('jenis_dokumen_luar') == 'KONSOLIDASI MANUAL' ? 'selected' : '' }}>
+                                                Konsolidasi Manual</option>
+                                            <option value="PEMBARUAN DATA LUAR" {{ old('jenis_dokumen_luar') == 'PEMBARUAN DATA LUAR' ? 'selected' : '' }}>Update Data Luar</option>
+                                            <option value="REKAM KTP" {{ old('jenis_dokumen_luar') == 'REKAM KTP' ? 'selected' : '' }}>Rekam KTP</option>
+                                            <option value="CETAK KTP" {{ old('jenis_dokumen_luar') == 'CETAK KTP' ? 'selected' : '' }}>Cetak KTP</option>
                                         </select>
                                         <div
                                             class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
-                                            <i class="fas fa-map-marker-alt text-xs"></i>
+                                            <i class="fas fa-chevron-down text-xs"></i>
                                         </div>
                                     </div>
-                                    @error('jenis_dokumen')
+                                    @error('jenis_dokumen_luar')
                                         <p class="text-red-500 text-[9px] font-bold mt-1 ml-2 uppercase italic">
                                             {{ $message }}
                                         </p>
@@ -1055,7 +1071,7 @@
                                 </div>
 
                                 <button type="submit" :disabled="isSubmittingLuar"
-                                    :class="isSubmittingLuar ? 'bg-slate-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-200 shadow-lg active:scale-[0.98]'"
+                                    :class="isSubmittingLuar ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 shadow-lg active:scale-[0.98]'"
                                     class="w-full text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-widest transition-all mt-4 flex items-center justify-center gap-2">
 
                                     <template x-if="!isSubmittingLuar">
@@ -1066,7 +1082,7 @@
 
                                     <template x-if="isSubmittingLuar">
                                         <span class="flex items-center gap-2">
-                                            <i class="fas fa-circle-notch animate-spin"></i> Memproses Pengajuan...
+                                            <i class="fas fa-circle-notch animate-spin"></i> Sedang Memproses...
                                         </span>
                                     </template>
                                 </button>
@@ -1074,7 +1090,7 @@
                         </div>
 
                         <i
-                            class="fas fa-map-marked-alt absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50"></i>
+                            class="fas fa-map-marked-alt absolute -right-4 bottom-0 text-[120px] md:text-[200px] text-slate-50/50 -z-0"></i>
                     </div>
                 </div>
 
@@ -1168,7 +1184,8 @@
                 </div>
 
 
-                <div x-show="tab === 'aktivasi'" x-transition x-cloak x-data="{ jenisLayanan: '', fileCount: 0 }">
+                <div x-show="tab === 'aktivasi'" x-transition x-cloak
+                    x-data="{ jenisLayanan: '', fileCount: 0, isProcessingAktivasi: false }">
                     <div
                         class="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
                         <div class="flex items-center space-x-3 mb-6">
@@ -1187,22 +1204,23 @@
                         </div>
 
                         <form action="{{ route('aktivasi.store') }}" method="POST" enctype="multipart/form-data"
-                            class="space-y-4 md:space-y-6">
+                            class="space-y-4 md:space-y-6" @submit="isProcessingAktivasi = true">
                             @csrf
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
                                 <div class="space-y-1">
                                     <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Nama
                                         Pelapor</label>
-                                    <input type="text" name="nama_lengkap" required value="{{ $user->name ?? '' }}"
-                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
+                                    <input type="text" name="nama_lengkap" required
+                                        value="{{ auth()->user()->name ?? '' }}" readonly
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all text-slate-500 cursor-not-allowed">
                                 </div>
 
                                 <div class="space-y-1">
                                     <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">NIK Pemohon
                                         (16 Digit)</label>
-                                    <input type="number" name="nik_aktivasi" required
-                                        oninput="if (this.value.length > 16) this.value = this.value.slice(0, 16)"
+                                    <input type="text" name="nik_aktivasi" required maxlength="16"
+                                        onkeypress="return event.charCode >= 48 && event.charCode <= 57"
                                         placeholder="16 digit NIK"
                                         class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all">
                                 </div>
@@ -1211,25 +1229,31 @@
                             <div class="space-y-1">
                                 <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">Pilih Jenis
                                     Layanan</label>
-                                <select name="jenis_layanan" required x-model="jenisLayanan"
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
-                                    <option value="" disabled selected>-- Pilih Layanan --</option>
-                                    <option value="restore">RESTORE DATA (Wajib Unggah Foto)</option>
-                                    <option value="aktivasi">AKTIVASI DATA (Unggah Foto Opsional)</option>
-                                </select>
+                                <div class="relative">
+                                    <select name="jenis_layanan" required x-model="jenisLayanan"
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs md:text-sm focus:border-blue-500 focus:outline-none font-semibold transition-all appearance-none cursor-pointer">
+                                        <option value="" disabled selected>-- Pilih Layanan --</option>
+                                        <option value="RESTORE">RESTORE DATA (Wajib Unggah Foto)</option>
+                                        <option value="AKTIVASI">AKTIVASI DATA (Unggah Foto Opsional)</option>
+                                    </select>
+                                    <div
+                                        class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
+                                        <i class="fas fa-chevron-down text-[10px]"></i>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="space-y-3">
                                 <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block">
                                     Tangkapan Layar / Foto Dokumen
-                                    <template x-if="jenisLayanan === 'restore'">
+                                    <template x-if="jenisLayanan === 'RESTORE'">
                                         <span class="text-red-500 font-black">(WAJIB - BISA LEBIH DARI 1)</span>
                                     </template>
                                 </label>
 
                                 <div class="relative group">
                                     <input type="file" name="lampiran[]" id="lampiran_aktivasi"
-                                        :required="jenisLayanan === 'restore'" multiple
+                                        :required="jenisLayanan === 'RESTORE'" multiple
                                         @change="fileCount = $event.target.files.length"
                                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
 
@@ -1277,9 +1301,19 @@
                                     placeholder="Contoh: NIK tidak ditemukan saat daftar BPJS"></textarea>
                             </div>
 
-                            <button type="submit"
-                                class="w-full bg-blue-600 text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] hover:bg-blue-700 active:scale-95 transition-all">
-                                KIRIM PERMINTAAN <span x-text="jenisLayanan.toUpperCase()"></span>
+                            <button type="submit" :disabled="isProcessingAktivasi"
+                                :class="isProcessingAktivasi ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'"
+                                class="w-full text-white font-black py-3.5 md:py-4 rounded-xl md:rounded-2xl shadow-lg uppercase tracking-widest text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-2">
+
+                                <template x-if="!isProcessingAktivasi">
+                                    <span>KIRIM PERMINTAAN <span x-text="jenisLayanan.toUpperCase()"></span></span>
+                                </template>
+
+                                <template x-if="isProcessingAktivasi">
+                                    <span class="flex items-center gap-2">
+                                        <i class="fas fa-circle-notch animate-spin"></i> SEDANG MEMPROSES...
+                                    </span>
+                                </template>
                             </button>
                         </form>
                     </div>
@@ -1495,10 +1529,9 @@
                                     <option value="" disabled selected>Pilih...</option>
 
                                     {{-- Tambahkan kata kunci yang dikenali oleh filter Dashboard --}}
-                                    <option value="PROXY - Jaringan">🌐 Jaringan</option>
-                                    <option value="PC - Komputer">💻 Komputer/PC</option>
-                                    <option value="SIAK - Sistem">⚙️ Aplikasi atau SIAK</option>
-                                    <option value="HARDWARE - Perangkat">🖨️ Perangkat Pendukung</option>
+                                    <option value="Jaringan">🌐 Jaringan</option>
+                                    <option value="Komputer/PC">💻 Komputer/PC</option>
+                                    <option value="Perangkat Pendukung">🖨️ Perangkat Pendukung</option>
                                 </select>
 
                                 <div x-data="{ 

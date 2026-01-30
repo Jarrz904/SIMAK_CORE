@@ -107,21 +107,22 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
         
         /**
          * PERBAIKAN: Menambahkan rute user.profile
-         * Ini untuk menangani error "Route [user.profile] not defined"
          */
-        Route::get('/user/profile', [UserController::class, 'index'])->name('user.profile'); // Diarahkan ke dashboard karena profil biasanya ada di sana
+        Route::get('/user/profile', [UserController::class, 'profile'])->name('user.profile');
         
         Route::put('/profile/update', [UserController::class, 'updateProfil'])->name('user.profile.update');
         Route::post('/user/notifikasi/{id}/read', [UserController::class, 'markAsRead'])->name('user.notif.read');
 
         // --- FITUR PEMBUBUHAN TTE ---
-        Route::post('/pembubuhan/store', [PembubuhanController::class, 'store'])->name('pembubuhan.store');
+        // Diarahkan ke UserController agar satu pintu dengan data dashboard lainnya
+        Route::post('/pembubuhan/store', [UserController::class, 'storePembubuhan'])->name('pembubuhan.store');
 
         // --- FITUR LUAR DAERAH ---
-        Route::post('/user/luar-daerah/store', [LuarDaerahController::class, 'store'])->name('user.luardaerah.store');
+        // PERBAIKAN: Diarahkan ke UserController agar group_key LUAR_CARD terbuat dengan benar
+        Route::post('/user/luar-daerah/store', [UserController::class, 'storeLuarDaerah'])->name('user.luardaerah.store');
 
         // --- FITUR UPDATE DATA (PENGAJUAN BARU) ---
-        Route::post('/user/update-data/store', [UpdateDataController::class, 'store'])->name('update-data.store');
+        Route::post('/user/update-data/store', [UserController::class, 'storeUpdateData'])->name('update-data.store');
     });
 
     // ==========================================
