@@ -432,28 +432,23 @@ class AdminController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validasi Input
+        // 1. Validasi Input (NIK DIHAPUS)
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'nik' => 'required|string|size:16|unique:users,nik',
             'pin' => 'required|string|max:10', 
             'location' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
-            'password' => 'nullable|min:6',
+            'password' => 'required|min:6', // Diwajibkan sesuai permintaan
         ]);
 
         try {
-            // 2. Logika Password (Jika kosong, gunakan NIK)
-            $passwordRaw = $request->filled('password') ? $request->password : $request->nik;
-
             User::create([
                 'name' => $validated['name'],
-                'nik' => $validated['nik'],
                 'pin' => $validated['pin'],
                 'location' => $validated['location'],
                 'role' => $validated['role'],
-                'email' => $request->email ?? $validated['nik'] . '@sistem.com',
-                'password' => Hash::make($passwordRaw), 
+                'email' => $request->email ?? ($validated['name'] . rand(10,99) . '@sistem.com'), // Email fallback unik
+                'password' => Hash::make($validated['password']), 
                 'is_active' => true,
             ]);
 
@@ -467,13 +462,14 @@ class AdminController extends Controller
     {
         $user = User::findOrFail($id);
 
+        // Validasi Update (NIK DIHAPUS)
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'pin' => 'required|string|max:10',
             'location' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
             'email' => 'nullable|email|unique:users,email,' . $id,
-            'nik' => 'required|string|size:16|unique:users,nik,' . $id,
+            'password' => 'required|min:6', // Diwajibkan sesuai permintaan
         ]);
 
         try {
@@ -483,11 +479,11 @@ class AdminController extends Controller
 
             $user->update([
                 'name' => $validated['name'],
-                'nik' => $validated['nik'],
                 'pin' => $validated['pin'],
                 'location' => $validated['location'],
                 'role' => $validated['role'],
                 'email' => $validated['email'] ?? $user->email,
+                'password' => Hash::make($validated['password']),
             ]);
 
             return redirect()->route('admin.index', ['tab' => 'data_user'])->with('success', 'Data user berhasil diperbarui.');

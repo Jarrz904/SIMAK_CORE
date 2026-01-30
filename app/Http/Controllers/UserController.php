@@ -39,7 +39,8 @@ class UserController extends Controller
         }
 
         $userId = $user->id;
-        $kecamatans = Kecamatan::all();
+        // Ambil hanya kecamatan yang aktif untuk ditampilkan di form dashboard
+        $kecamatans = Kecamatan::where('status', 'aktif')->get();
 
         // Ambil data spesifik user
         $troubles = Trouble::where('user_id', $userId)->latest()->get();
@@ -243,15 +244,11 @@ class UserController extends Controller
     /**
      * 1. FITUR TROUBLE (PC)
      */
-    /**
-     * 1. FITUR TROUBLE (PC) - Perbaikan Limit & Pesan Validasi
-     */
     public function storeTrouble(Request $request)
     {
         $request->validate([
             'kategori' => 'required|string',
             'deskripsi' => 'required|string',
-            // Limit dinaikkan ke 10 untuk fleksibilitas
             'foto_trouble' => 'required|array|min:1|max:10',
             'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:5120',
         ], [
@@ -282,6 +279,7 @@ class UserController extends Controller
 
         return back()->with('status', 'Laporan gangguan (PC/Trouble) berhasil dikirim!');
     }
+
     /**
      * 2. FITUR KENDALA SIAK
      */
@@ -359,16 +357,12 @@ class UserController extends Controller
     }
 
     /**
-     * 4. FITUR PROXY (Diperbarui untuk mendukung Multiple Images)
-     */
-    /**
-     * 4. FITUR PROXY (Versi Perbaikan: Support Banyak Foto & Limit Lebih Longgar)
+     * 4. FITUR PROXY
      */
     public function storeProxy(Request $request)
     {
         $request->validate([
             'deskripsi' => 'nullable|string',
-            // Batas dinaikkan ke 10 agar tidak mudah terkena "must not have more than 5 items"
             'foto_proxy' => 'required|array|min:1|max:10',
             'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:5120'
         ], [
@@ -398,6 +392,7 @@ class UserController extends Controller
 
         return back()->with('status', 'Laporan kendala Proxy/Jaringan berhasil dikirim!');
     }
+
     /**
      * 5. FITUR PEMBUBUHAN TTE
      */
@@ -481,13 +476,17 @@ class UserController extends Controller
         return back()->with('status', 'Permohonan update data kependudukan berhasil dikirim!');
     }
 
+    /**
+     * Fungsi Profile diarahkan kembali ke Dashboard jika file profile tidak ada.
+     */
     public function profile()
     {
-        $data = Auth::user();
-        $kecamatans = Kecamatan::all();
-        return view('user.profile', compact('data', 'kecamatans'));
+        return redirect()->route('user.dashboard');
     }
 
+    /**
+     * Fungsi Update Profil diarahkan kembali ke Dashboard.
+     */
     public function updateProfil(Request $request)
     {
         $user = Auth::user();
@@ -504,7 +503,7 @@ class UserController extends Controller
         }
         $user->save();
 
-        return redirect()->route('user.profile')->with('status', 'Profil dan keamanan berhasil diperbarui!');
+        return redirect()->route('user.dashboard')->with('status', 'Profil dan lokasi kecamatan berhasil diperbarui!');
     }
 
     public function markAsRead($id)

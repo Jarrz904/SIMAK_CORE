@@ -86,7 +86,6 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
             
             /** * PERBAIKAN DI SINI:
              * Menggunakan Route::match untuk mendukung GET dan POST sekaligus.
-             * Ini mencegah error 'Method Not Allowed' saat form dikirim via POST.
              */
             Route::get('/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
             Route::post('/export-aktivasi', [AdminController::class, 'exportAktivasi']);
@@ -103,22 +102,27 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     // AREA USER (Role User/Penduduk)
     // ==========================================
     Route::middleware('role:user')->group(function () {
+        // Halaman utama user
         Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
         
         /**
-         * PERBAIKAN: Menambahkan rute user.profile
+         * PERBAIKAN UNTUK DASHBOARD TUNGGAL:
+         * 1. Route GET profile diarahkan kembali ke dashboard agar tidak error 404.
+         * 2. Route update mendukung PUT dan POST (mengatasi MethodNotAllowed).
          */
-        Route::get('/user/profile', [UserController::class, 'profile'])->name('user.profile');
+        Route::get('/user/profile', function() {
+            return redirect()->route('user.dashboard');
+        })->name('user.profile');
         
-        Route::put('/profile/update', [UserController::class, 'updateProfil'])->name('user.profile.update');
+        // Match digunakan agar jika form di dashboard pakai @method('PUT') atau POST tetap jalan
+        Route::match(['put', 'post'], '/user/profile/update', [UserController::class, 'updateProfil'])->name('user.profile.update');
+        
         Route::post('/user/notifikasi/{id}/read', [UserController::class, 'markAsRead'])->name('user.notif.read');
 
         // --- FITUR PEMBUBUHAN TTE ---
-        // Diarahkan ke UserController agar satu pintu dengan data dashboard lainnya
         Route::post('/pembubuhan/store', [UserController::class, 'storePembubuhan'])->name('pembubuhan.store');
 
         // --- FITUR LUAR DAERAH ---
-        // PERBAIKAN: Diarahkan ke UserController agar group_key LUAR_CARD terbuat dengan benar
         Route::post('/user/luar-daerah/store', [UserController::class, 'storeLuarDaerah'])->name('user.luardaerah.store');
 
         // --- FITUR UPDATE DATA (PENGAJUAN BARU) ---

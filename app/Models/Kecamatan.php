@@ -10,23 +10,39 @@ class Kecamatan extends Model
 {
     use HasFactory;
 
-    // Pastikan nama tabel sesuai dengan yang ada di database Anda
+    // Nama tabel sudah benar
     protected $table = 'kecamatans';
 
-    // Kolom yang boleh diisi secara massal
+    /**
+     * Menonaktifkan timestamps (created_at, updated_at) otomatis Laravel 
+     * jika di migration Anda hanya menggunakan 'created_at' manual.
+     * Jika Anda ingin Laravel mengelola updated_at juga, biarkan true.
+     */
+    public $timestamps = false; 
+
+    // Kolom yang disesuaikan dengan migration tadi
     protected $fillable = [
         'nama_kecamatan',
-        'kode_kecamatan', // Jika ada
+        'kode_wilayah', // Tadi di migration namanya 'kode_wilayah', bukan 'kode_kecamatan'
+        'status',       // Penting untuk filter 'aktif'/'nonaktif'
     ];
 
     /**
-     * Relasi ke model Laporan (Satu kecamatan memiliki banyak laporan)
-     * Sesuaikan nama model Laporan Anda (misal: Trouble, Proxy, dll)
+     * Relasi ke model User
+     * Karena di UserController Anda menyimpan nama kecamatan ke kolom 'location' pada tabel users
      */
-    public function laporans(): HasMany
+    public function users(): HasMany
     {
-        // Ganti 'Laporan' dengan nama model utama kendala Anda
-        // Pastikan di tabel laporans ada kolom 'kecamatan_id'
-        return $this->hasMany(Laporan::class, 'kecamatan_id');
+        // Sesuaikan jika Anda menggunakan 'location' (string) atau 'kecamatan_id' (integer)
+        return $this->hasMany(User::class, 'location', 'nama_kecamatan');
+    }
+
+    /**
+     * Relasi ke model lain (Contoh: Trouble)
+     */
+    public function troubles(): HasMany
+    {
+        // Jika nanti Anda menambahkan kolom 'kecamatan_id' di tabel troubles
+        return $this->hasMany(Trouble::class, 'kecamatan_id');
     }
 }
