@@ -17,6 +17,7 @@ use App\Models\Kecamatan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class UserController extends Controller
 {
@@ -89,7 +90,27 @@ class UserController extends Controller
 
         $allNotifications = collect();
 
+        // Helper function inside index to determine rejection
+        $checkRejected = function($status, $tanggapan) {
+            $s = strtolower($status ?? '');
+            $t = strtolower($tanggapan ?? '');
+            $rejectKeywords = ['tolak', 'gagal', 'salah', 'tidak ditemukan', 'tidak sesuai', 'perbaiki', 'revisi'];
+            
+            $hasRejectKeyword = false;
+            foreach ($rejectKeywords as $kw) {
+                if (str_contains($t, $kw)) {
+                    $hasRejectKeyword = true;
+                    break;
+                }
+            }
+            
+            return ($s === 'rejected' || $s === 'ditolak' || $hasRejectKeyword);
+        };
+
         foreach ($troubles as $t) {
+            $statusLower = strtolower($t->status ?? 'pending');
+            $isRejected = $checkRejected($t->status, $t->tanggapan_admin);
+            
             $allNotifications->push((object) [
                 'id' => $t->id,
                 'group_key' => 'PC_CARD',
@@ -99,16 +120,20 @@ class UserController extends Controller
                 'jenis_dokumen' => null,
                 'pesan' => $t->deskripsi,
                 'tanggapan_admin' => $t->tanggapan_admin,
-                'is_rejected' => (bool) ($t->is_rejected ?? false),
-                'created_at' => $t->created_at,
-                'updated_at' => $t->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($t->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($t->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'trouble',
-                'status' => $t->status
+                'status' => $isRejected ? 'Rejected' : $t->status,
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($aktivasis as $a) {
+            $statusLower = strtolower($a->status ?? 'pending');
+            $isRejected = $checkRejected($a->status, $a->tanggapan_admin);
             $prefix = strtoupper($a->jenis_layanan ?? 'AKTIVASI');
+            
             $allNotifications->push((object) [
                 'id' => $a->id,
                 'group_key' => 'NIK_CARD',
@@ -118,16 +143,20 @@ class UserController extends Controller
                 'jenis_dokumen' => null,
                 'pesan' => ($a->alasan ?? "Permintaan " . $prefix . " NIK: " . $a->nik_aktivasi),
                 'tanggapan_admin' => $a->tanggapan_admin,
-                'is_rejected' => (bool) ($a->is_rejected ?? false),
-                'created_at' => $a->created_at,
-                'updated_at' => $a->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($a->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($a->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'aktivasi',
-                'status' => $a->status
+                'status' => $isRejected ? 'Rejected' : $a->status,
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($pengajuans as $p) {
+            $statusLower = strtolower($p->status ?? 'pending');
+            $isRejected = $checkRejected($p->status, $p->tanggapan_admin);
             $kategoriTampil = !empty($p->kategori) ? $p->kategori : $p->jenis_registrasi;
+            
             $allNotifications->push((object) [
                 'id' => $p->id,
                 'group_key' => 'SIAK_CARD',
@@ -137,15 +166,19 @@ class UserController extends Controller
                 'jenis_dokumen' => null,
                 'pesan' => $p->deskripsi ?? "Laporan Kendala SIAK",
                 'tanggapan_admin' => $p->tanggapan_admin,
-                'is_rejected' => (bool) ($p->is_rejected ?? false),
-                'created_at' => $p->created_at,
-                'updated_at' => $p->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($p->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($p->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'pengajuan',
-                'status' => $p->status
+                'status' => $isRejected ? 'Rejected' : $p->status,
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($proxies as $pr) {
+            $statusLower = strtolower($pr->status ?? 'pending');
+            $isRejected = $checkRejected($pr->status, $pr->tanggapan_admin);
+            
             $allNotifications->push((object) [
                 'id' => $pr->id,
                 'group_key' => 'PROXY_CARD',
@@ -155,15 +188,18 @@ class UserController extends Controller
                 'jenis_dokumen' => null,
                 'pesan' => $pr->deskripsi ?? $pr->ip_detail,
                 'tanggapan_admin' => $pr->tanggapan_admin,
-                'is_rejected' => (bool) ($pr->is_rejected ?? false),
-                'created_at' => $pr->created_at,
-                'updated_at' => $pr->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($pr->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($pr->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'proxy',
-                'status' => $pr->status
+                'status' => $isRejected ? 'Rejected' : $pr->status,
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($pembubuhans as $pb) {
+            $statusLower = strtolower($pb->status ?? 'pending');
+            $isRejected = $checkRejected($pb->status, $pb->tanggapan_admin);
             $jenisDok = strtoupper($pb->jenis_dokumen ?? 'PEMBUBUHAN');
             $nikTarget = $pb->nik_pemohon ?? ($pb->nik ?? '-');
 
@@ -176,15 +212,19 @@ class UserController extends Controller
                 'jenis_dokumen' => $jenisDok,
                 'pesan' => "Layanan TTE: " . $jenisDok . " (NIK Pemohon: " . $nikTarget . ")",
                 'tanggapan_admin' => $pb->tanggapan_admin,
-                'is_rejected' => (bool) ($pb->is_rejected ?? ($pb->status === 'Rejected')),
-                'created_at' => $pb->created_at,
-                'updated_at' => $pb->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($pb->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($pb->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'pembubuhan',
-                'status' => $pb->status ?? 'Pending'
+                'status' => $isRejected ? 'Rejected' : ($pb->status ?? 'Pending'),
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($luardaerahs as $ld) {
+            $statusLower = strtolower($ld->status ?? 'pending');
+            $isRejected = $checkRejected($ld->status, $ld->tanggapan_admin);
+            
             $allNotifications->push((object) [
                 'id' => $ld->id,
                 'group_key' => 'LUAR_CARD',
@@ -194,15 +234,19 @@ class UserController extends Controller
                 'jenis_dokumen' => strtoupper($ld->jenis_dokumen),
                 'pesan' => "Layanan Luar Daerah: " . strtoupper($ld->jenis_dokumen) . " (Target: " . $ld->nik_luar_daerah . ")",
                 'tanggapan_admin' => $ld->tanggapan_admin,
-                'is_rejected' => (bool) ($ld->is_rejected ?? false),
-                'created_at' => $ld->created_at,
-                'updated_at' => $ld->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($ld->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($ld->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'luardaerah',
-                'status' => $ld->status ?? 'pending'
+                'status' => $isRejected ? 'Rejected' : ($ld->status ?? 'pending'),
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
         foreach ($updatedatas as $ud) {
+            $statusLower = strtolower($ud->status ?? 'pending');
+            $isRejected = $checkRejected($ud->status, $ud->tanggapan_admin);
+            
             $allNotifications->push((object) [
                 'id' => $ud->id,
                 'group_key' => 'UPDATE_CARD',
@@ -212,11 +256,12 @@ class UserController extends Controller
                 'jenis_dokumen' => null,
                 'pesan' => $ud->deskripsi,
                 'tanggapan_admin' => $ud->tanggapan_admin,
-                'is_rejected' => (bool) ($ud->status === 'rejected'),
-                'created_at' => $ud->created_at,
-                'updated_at' => $ud->updated_at,
+                'is_rejected' => $isRejected,
+                'created_at' => Carbon::parse($ud->created_at)->timezone('Asia/Jakarta'),
+                'updated_at' => Carbon::parse($ud->updated_at)->timezone('Asia/Jakarta'),
                 'type' => 'updatedata',
-                'status' => $ud->status
+                'status' => $isRejected ? 'Rejected' : $ud->status,
+                'color' => ($statusLower === 'selesai' || $statusLower === 'success') ? 'emerald' : ($isRejected ? 'red' : 'orange')
             ]);
         }
 
@@ -255,7 +300,7 @@ class UserController extends Controller
             'foto_trouble.required' => 'Wajib melampirkan minimal satu foto bukti gangguan.',
             'foto_trouble.max' => 'Maksimal lampiran yang diperbolehkan adalah 10 file.',
             'foto_trouble.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
-            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 1MB.'
+            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 5MB.'
         ]);
 
         $filePaths = [];
@@ -321,15 +366,19 @@ class UserController extends Controller
      */
     public function storeAktivasi(Request $request)
     {
+        $isRestore = strtoupper(trim($request->jenis_layanan)) === 'RESTORE';
+
         $request->validate([
             'nama_lengkap' => 'required|string|max:255',
             'nik_aktivasi' => 'required|numeric|digits:16',
             'jenis_layanan' => 'required|in:RESTORE,AKTIVASI,restore,aktivasi',
             'alasan' => 'nullable|string',
-            'lampiran' => (strtoupper($request->jenis_layanan) === 'RESTORE' ? 'required' : 'nullable') . '|array|max:5',
+            'lampiran' => ($isRestore ? 'required' : 'nullable') . '|array|max:5',
             'lampiran.*' => 'image|mimes:jpeg,png,jpg|max:5120'
         ], [
             'lampiran.required' => 'Untuk layanan Restore Data, Anda wajib mengunggah minimal satu lampiran gambar.',
+            'lampiran.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
+            'lampiran.*.max' => 'Ukuran file gambar tidak boleh lebih dari 5MB.',
         ]);
 
         $filePaths = [];
@@ -352,7 +401,7 @@ class UserController extends Controller
             'status' => 'Pending'
         ]);
 
-        $pesan = strtoupper($request->jenis_layanan) === 'RESTORE' ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK';
+        $pesan = $isRestore ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK';
         return back()->with('status', $pesan . ' berhasil dikirim!');
     }
 
@@ -367,6 +416,7 @@ class UserController extends Controller
             'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:5120'
         ], [
             'foto_proxy.required' => 'Wajib mengunggah minimal satu foto.',
+            'foto_proxy.array' => 'Format unggahan foto tidak valid.',
             'foto_proxy.max' => 'Maksimal lampiran adalah 10 file foto.',
             'foto_proxy.*.image' => 'File harus berupa gambar.',
             'foto_proxy.*.max' => 'Ukuran satu foto maksimal 5MB.'
@@ -449,7 +499,7 @@ class UserController extends Controller
             'nik_pemohon' => 'required|numeric|digits:16',
             'kategori_update' => 'required|string',
             'alasan_update' => 'required|string',
-            'lampiran_update' => 'required|array|min:1|max:5',
+            'lampiran_update' => 'required|array|min:1|max:10',
             'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:5120'
         ]);
 
@@ -476,17 +526,11 @@ class UserController extends Controller
         return back()->with('status', 'Permohonan update data kependudukan berhasil dikirim!');
     }
 
-    /**
-     * Fungsi Profile diarahkan kembali ke Dashboard jika file profile tidak ada.
-     */
     public function profile()
     {
         return redirect()->route('user.dashboard');
     }
 
-    /**
-     * Fungsi Update Profil diarahkan kembali ke Dashboard.
-     */
     public function updateProfil(Request $request)
     {
         $user = Auth::user();
@@ -503,7 +547,7 @@ class UserController extends Controller
         }
         $user->save();
 
-        return redirect()->route('user.dashboard')->with('status', 'Profil dan lokasi kecamatan berhasil diperbarui!');
+        return redirect()->route('user.dashboard')->with('status', 'Profil diperbarui!');
     }
 
     public function markAsRead($id)

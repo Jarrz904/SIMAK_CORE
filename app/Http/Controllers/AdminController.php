@@ -12,7 +12,7 @@ use App\Models\Pembubuhan;
 use App\Models\Kecamatan;
 use App\Models\Announcement;
 use App\Models\LuarDaerah;
-use App\Models\UpdateData; // Import Model UpdateData
+use App\Models\UpdateData; 
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +27,9 @@ class AdminController extends Controller
      */
     public function index(Request $request)
     {
-        // Set locale Carbon ke Indonesia agar "time ago" menjadi Bahasa Indonesia
+        // Memastikan PHP dan Carbon menggunakan Asia/Jakarta secara konsisten
+        date_default_timezone_set('Asia/Jakarta');
         Carbon::setLocale('id');
-
-        // Set Timezone default Asia/Jakarta
         $timezone = 'Asia/Jakarta';
 
         // 1. Data Wilayah (Kecamatan)
@@ -40,7 +39,7 @@ class AdminController extends Controller
         $totalPenduduk = User::where('role', 'user')->count();
         $totalUser = User::count();
         
-        // 3. Hitung Count secara real-time langsung dari Query (Lebih Cepat)
+        // 3. Hitung Count secara real-time langsung dari Query
         $countSiak = Pengajuan::count();
         $countAktivasi = Aktivasi::count();
         $countProxy = Proxy::count();
@@ -56,7 +55,13 @@ class AdminController extends Controller
         $proxies = Proxy::with('user')->get();
         $pembubuhans = Pembubuhan::with('user')->get();
         $luarDaerahs = LuarDaerah::with('user')->get();
-        $updateDatas = UpdateData::with('user')->get(); 
+        
+        // PERBAIKAN: Gunakan Paginate dan Sorting (Pending Terlama di Atas)
+        $updateDatas = UpdateData::with('user')
+            ->orderByRaw("CASE WHEN tanggapan_admin IS NULL OR tanggapan_admin = '' THEN 0 ELSE 1 END ASC")
+            ->orderBy('created_at', 'asc')
+            ->paginate(10, ['*'], 'update_page') 
+            ->appends(['tab' => 'laporan_update_data']);
 
         // --- Statistik Kategori TTE ---
         $countTte = $countPembubuhan;
@@ -107,17 +112,29 @@ class AdminController extends Controller
             ->pluck('total', 'label')
             ->toArray();
 
+        // --- Statistik Kategori Update Data ---
+        $updateDataCategories = UpdateData::select(
+            DB::raw("CASE 
+                WHEN jenis_layanan IS NULL OR TRIM(jenis_layanan) = '' THEN 'BIODATA' 
+                ELSE UPPER(TRIM(jenis_layanan)) 
+            END as label"),
+            DB::raw('count(*) as total')
+        )
+            ->groupBy('label')
+            ->pluck('total', 'label')
+            ->toArray();
+
         $pendudukTerbaru = User::where('role', 'user')->latest()->take(5)->get();
 
         // Pagination User
-        $allUsers = User::latest()->paginate(10);
+        $allUsers = User::latest()->paginate(10, ['*'], 'user_page');
 
         // Load Data Pengumuman
         $announcements = Announcement::latest()->get();
 
         // 4. Logika Grafik Pendaftaran User (7 Hari Terakhir)
-        $days = collect(range(6, 0))->map(function ($i) {
-            return now()->subDays($i)->format('Y-m-d');
+        $days = collect(range(6, 0))->map(function ($i) use ($timezone) {
+            return Carbon::now($timezone)->subDays($i)->format('Y-m-d');
         });
 
         $counts = $days->map(function ($date) {
@@ -130,55 +147,66 @@ class AdminController extends Controller
         // 5. Penggabungan Semua Data Laporan (Combined Collection)
         $combinedLaporans = collect();
 
-        // Mapping helper (Sinkronisasi dengan database masing-masing)
+        // Mapping helper
         $this->mapLaporan($combinedLaporans, $troubles, 'trouble', 'PC - ', $timezone);
         $this->mapLaporan($combinedLaporans, $aktivasis, 'aktivasi', 'NIK - ', $timezone);
         $this->mapLaporan($combinedLaporans, $luarDaerahs, 'luardaerah', 'LUAR DAERAH - ', $timezone);
-        $this->mapLaporan($combinedLaporans, $updateDatas, 'updatedata', 'UPDATE - ', $timezone); 
+        $this->mapLaporan($combinedLaporans, UpdateData::with('user')->get(), 'updatedata', 'UPDATE - ', $timezone); 
         $this->mapLaporan($combinedLaporans, $pengajuans, 'pengajuan', 'SIAK - ', $timezone);
         $this->mapLaporan($combinedLaporans, $proxies, 'proxy', 'PROXY - JARINGAN', $timezone);
         $this->mapLaporan($combinedLaporans, $pembubuhans, 'pembubuhan', 'TTE - ', $timezone);
 
         /**
-         * LOGIC SORTING PERBAIKAN:
-         * 1. Status 'pending' diprioritaskan di atas.
-         * 2. Untuk status yang sama, urutkan berdasarkan created_at ASC (Terlama di atas).
-         * 3. Status 'selesai' dan 'ditolak' akan berada di bawah.
+         * LOGIC SORTING: Status 'pending' diprioritaskan di atas.
          */
         $sortedLaporans = $combinedLaporans->sort(function ($a, $b) {
-            // Prioritas Status: pending = 0, lainnya = 1
             $priorityA = ($a->status === 'pending') ? 0 : 1;
             $priorityB = ($b->status === 'pending') ? 0 : 1;
 
             if ($priorityA === $priorityB) {
-                // Jika status sama-sama pending atau sama-sama selesai, 
-                // urutkan berdasarkan waktu created_at secara ASC (Oldest First)
-                return $a->created_at->timestamp <=> $b->created_at->timestamp;
+                return $b->created_at->timestamp <=> $a->created_at->timestamp;
             }
-
             return $priorityA <=> $priorityB;
         })->values();
 
-        // --- DATA UNTUK ALPINE.JS DASHBOARD TABLE (Khusus Update Data) ---
-        $jsUpdateData = $updateDatas->map(function($item) {
+        // --- SINKRONISASI UNTUK ALPINE.JS (VERSI MULTI-FOTO) ---
+        $updateDatasJs = $updateDatas->map(function($item) use ($timezone) {
             $status = $item->status ?? ($item->is_rejected ? 'ditolak' : (!empty($item->tanggapan_admin) ? 'selesai' : 'pending'));
+            $createdAt = Carbon::parse($item->created_at)->timezone($timezone);
+            
+            // LOGIC FIX: Memastikan lampiran menjadi Array URL
+            $lampiranRaw = $item->lampiran;
+            $allLampirans = [];
+            
+            if (!empty($lampiranRaw)) {
+                $decoded = json_decode($lampiranRaw, true);
+                if (is_array($decoded)) {
+                    foreach ($decoded as $path) {
+                        $cleanPath = str_replace('\\', '', $path);
+                        $allLampirans[] = asset('storage/' . $cleanPath);
+                    }
+                } else {
+                    $cleanPath = str_replace('\\', '', $lampiranRaw);
+                    $allLampirans[] = asset('storage/' . $cleanPath);
+                }
+            }
+
             return [
-                'id'           => $item->id,
-                'name'         => $item->user->name ?? 'User Tak Dikenal',
-                'location'     => $item->user->location ?? 'LUAR WILAYAH',
-                'month'        => Carbon::parse($item->created_at)->format('m'),
-                'status'       => $status,
-                'kat_row'      => 'updatedata', // Disamakan dengan key di getModelByType
-                'display_kat'  => strtoupper($item->jenis_layanan ?? 'UPDATE DATA'),
-                'foto_ktp'     => $item->foto_ktp ? asset('storage/' . $item->foto_ktp) : null,
-                'alasan'       => "NIK: ".($item->nik_pemohon ?? '-')." | ".($item->deskripsi ?? $item->alasan ?? '-'),
-                'tanggapan'    => $item->tanggapan_admin,
-                'date_human'   => Carbon::parse($item->created_at)->diffForHumans(),
-                'time'         => Carbon::parse($item->created_at)->format('H:i'),
-                'csrf'         => csrf_token(),
-                'url_respon'   => route('admin.laporan.respon'),
-                'url_tolak'    => route('admin.laporan.tolak', $item->id),
-                'url_hapus'    => route('admin.laporan.hapus', $item->id),
+                'id'              => $item->id,
+                'name'            => $item->user->name ?? 'User Tak Dikenal',
+                'location'        => $item->user->location ?? 'LUAR WILAYAH',
+                'month'           => $createdAt->format('m'),
+                'status'          => $status,
+                'kat_row'         => 'updatedata',
+                'jenis_layanan'   => strtoupper($item->jenis_layanan ?? 'BIODATA'),
+                'lampiran'        => count($allLampirans) > 0 ? $allLampirans : null,
+                'nik_pemohon'     => $item->nik_pemohon ?? '-', 
+                'deskripsi'       => $item->deskripsi ?? $item->alasan ?? '-',
+                'tanggapan_admin' => $item->tanggapan_admin,
+                'created_at'      => $createdAt->format('d/m/Y H:i'),
+                'csrf'            => csrf_token(),
+                'url_respon'      => route('admin.laporan.respon'),
+                'url_hapus'       => route('admin.laporan.hapus', ['id' => $item->id, 'type' => 'updatedata']),
             ];
         });
 
@@ -201,7 +229,7 @@ class AdminController extends Controller
             'pembubuhans',
             'luarDaerahs',
             'updateDatas', 
-            'jsUpdateData', 
+            'updateDatasJs', 
             'chartLabels',
             'chartData',
             'kecamatans',
@@ -215,16 +243,17 @@ class AdminController extends Controller
             'countTte',
             'tteCategories',
             'luarDaerahCategories',
+            'updateDataCategories',
             'announcements',
             'siakCategories',
             'troubleCategories',
             'currentTab'
-        ))->with('laporans', $sortedLaporans);
+        ))->with([
+            'laporans' => $sortedLaporans,
+            'update_datas' => $updateDatas
+        ]);
     }
 
-    /**
-     * Private helper to map different models to a unified structure
-     */
     private function mapLaporan(&$collection, $data, $type, $prefix, $timezone)
     {
         foreach ($data as $item) {
@@ -246,6 +275,7 @@ class AdminController extends Controller
                     $pesan = "NIK: " . $item->nik_aktivasi . " | Alasan: " . ($item->alasan ?? '-');
                     break;
                 case 'luardaerah':
+                    $kategori_asli = 'LUAR DAERAH';
                     $jenis_dokumen = strtoupper($item->jenis_dokumen ?? 'UMUM');
                     $kategori_label .= $jenis_dokumen;
                     $pesan = "NIK Target: " . ($item->nik_luar_daerah ?? '-') . " | Dokumen: " . ($item->jenis_dokumen ?? '-');
@@ -259,18 +289,24 @@ class AdminController extends Controller
                 case 'pengajuan':
                     $kategori_asli = strtoupper($item->kategori ?? $item->jenis_registrasi ?? 'REGISTRASI');
                     $kategori_label .= $kategori_asli;
-                    $pesan = $item->deskripsi;
+                    $pesan = "Kendala: " . $kategori_asli . " | Deskripsi: " . ($item->deskripsi ?? '-');
                     break;
                 case 'proxy':
                     $kategori_asli = 'JARINGAN';
+                    $kategori_label = $prefix; 
                     $pesan = "Deskripsi: " . ($item->deskripsi ?? $item->ip_detail ?? 'Akses Jaringan');
                     break;
                 case 'pembubuhan':
+                    $kategori_asli = 'TTE';
                     $jenis_dokumen = strtoupper($item->jenis_dokumen ?? 'PEMBUBUHAN');
                     $kategori_label .= $jenis_dokumen;
                     $pesan = "Permohonan TTE Dokumen: " . ($item->jenis_dokumen ?? '-');
                     break;
             }
+
+            // Memastikan parse waktu selalu ke Jakarta
+            $createdAt = Carbon::parse($item->created_at)->timezone($timezone);
+            $updatedAt = Carbon::parse($item->updated_at)->timezone($timezone);
 
             $collection->push((object) [
                 'id' => $item->id,
@@ -282,8 +318,8 @@ class AdminController extends Controller
                 'jenis_layanan' => $jenis_layanan,
                 'jenis_dokumen' => $jenis_dokumen,
                 'pesan' => $pesan ?: 'Tidak ada detail',
-                'created_at' => Carbon::parse($item->created_at)->timezone($timezone),
-                'updated_at' => Carbon::parse($item->updated_at)->timezone($timezone),
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
                 'tanggapan_admin' => $item->tanggapan_admin,
                 'processed_by' => $item->processed_by ?? 'ADMIN',
                 'is_rejected' => (bool) ($item->is_rejected ?? false),
@@ -295,23 +331,24 @@ class AdminController extends Controller
 
     private function getModelByType($type, $id)
     {
-        // Normalisasi input type agar tidak sensitif huruf besar/kecil dan spasi
         $type = strtolower(trim($type));
-        
         return match ($type) {
             'aktivasi' => Aktivasi::findOrFail($id),
             'luardaerah', 'luar daerah' => LuarDaerah::findOrFail($id),
-            'updatedata', 'update data', 'update' => UpdateData::findOrFail($id), // Menambahkan 'update' sebagai alias
+            'updatedata', 'update data', 'update' => UpdateData::findOrFail($id),
             'pengajuan', 'siak' => Pengajuan::findOrFail($id),
             'proxy' => Proxy::findOrFail($id),
             'trouble' => Trouble::findOrFail($id),
             'pembubuhan', 'tte' => Pembubuhan::findOrFail($id),
-            default => throw new \Exception("Tipe laporan '$type' tidak dikenal oleh sistem."),
+            default => throw new \Exception("Tipe laporan '$type' tidak dikenal."),
         };
     }
 
     public function kirimRespon(Request $request)
     {
+        // Set timezone di awal proses simpan
+        date_default_timezone_set('Asia/Jakarta');
+
         $request->validate([
             'laporan_id' => 'required',
             'admin_note' => 'required|string',
@@ -324,6 +361,11 @@ class AdminController extends Controller
             $tableName = $model->getTable();
 
             $model->tanggapan_admin = $request->admin_note;
+
+            // Memastikan kolom updated_at manual atau otomatis menggunakan waktu Jakarta
+            if (Schema::hasColumn($tableName, 'updated_at')) {
+                $model->updated_at = Carbon::now('Asia/Jakarta');
+            }
 
             if (Schema::hasColumn($tableName, 'processed_by')) {
                 $model->processed_by = Auth::user()->name;
@@ -338,17 +380,21 @@ class AdminController extends Controller
             }
 
             $model->save();
-
             DB::commit();
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->with('success', 'Respon ' . ucfirst($request->type) . ' berhasil dikirim!');
+            
+            $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
+            return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Respon ' . ucfirst($request->type) . ' berhasil dikirim!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->withErrors(['error' => 'Gagal mengirim tanggapan: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Gagal mengirim tanggapan: ' . $e->getMessage()]);
         }
     }
 
     public function tolakLaporan(Request $request, $id)
     {
+        // Set timezone di awal proses simpan
+        date_default_timezone_set('Asia/Jakarta');
+
         $request->validate([
             'type' => 'required',
             'admin_note' => 'nullable|string'
@@ -360,6 +406,10 @@ class AdminController extends Controller
             $tableName = $model->getTable();
 
             $model->tanggapan_admin = $request->admin_note ?? 'Laporan ditolak karena data tidak sesuai kriteria.';
+
+            if (Schema::hasColumn($tableName, 'updated_at')) {
+                $model->updated_at = Carbon::now('Asia/Jakarta');
+            }
 
             if (Schema::hasColumn($tableName, 'processed_by')) {
                 $model->processed_by = Auth::user()->name;
@@ -376,10 +426,11 @@ class AdminController extends Controller
             $model->save();
             DB::commit();
 
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->with('success', 'Laporan ' . ucfirst($request->type) . ' telah ditolak.');
+            $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
+            return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan ' . ucfirst($request->type) . ' telah ditolak.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->withErrors(['error' => 'Gagal menolak laporan: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Gagal menolak laporan: ' . $e->getMessage()]);
         }
     }
 
@@ -394,28 +445,15 @@ class AdminController extends Controller
             foreach ($imageFields as $field) {
                 if (isset($model->$field) && !empty($model->$field)) {
                     $data = $model->$field;
-                    
-                    // PERBAIKAN: Cek apakah data berupa array (sudah otomatis didecode oleh model cast)
-                    // atau string yang perlu didecode manual.
-                    $decoded = null;
-                    if (is_array($data)) {
-                        $decoded = $data;
-                    } elseif (is_string($data)) {
-                        $attempt = json_decode($data, true);
-                        if (json_last_error() === JSON_ERROR_NONE && is_array($attempt)) {
-                            $decoded = $attempt;
-                        }
-                    }
+                    $decoded = is_array($data) ? $data : json_decode($data, true);
 
                     if (is_array($decoded)) {
-                        // Jika data adalah multiple images (Array)
                         foreach ($decoded as $path) {
                             if (is_string($path) && Storage::disk('public')->exists($path)) {
                                 Storage::disk('public')->delete($path);
                             }
                         }
                     } else {
-                        // Jika data adalah string path tunggal
                         if (is_string($data) && Storage::disk('public')->exists($data)) {
                             Storage::disk('public')->delete($data);
                         }
@@ -424,21 +462,22 @@ class AdminController extends Controller
             }
 
             $model->delete();
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->with('success', 'Laporan berhasil dihapus.');
+            $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
+            return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan berhasil dihapus.');
         } catch (\Exception $e) {
-            return redirect()->route('admin.index', ['tab' => 'laporan_sistem'])->withErrors(['error' => 'Gagal menghapus laporan: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Gagal menghapus laporan: ' . $e->getMessage()]);
         }
     }
 
     public function store(Request $request)
     {
-        // 1. Validasi Input (NIK DIHAPUS)
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'pin' => 'required|string|max:10', 
             'location' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
-            'password' => 'required|min:6', // Diwajibkan sesuai permintaan
+            'password' => 'required|min:6',
+            'email' => 'nullable|email|unique:users,email'
         ]);
 
         try {
@@ -447,7 +486,7 @@ class AdminController extends Controller
                 'pin' => $validated['pin'],
                 'location' => $validated['location'],
                 'role' => $validated['role'],
-                'email' => $request->email ?? ($validated['name'] . rand(10,99) . '@sistem.com'), // Email fallback unik
+                'email' => $validated['email'] ?? ($validated['name'] . rand(10,99) . '@sistem.com'),
                 'password' => Hash::make($validated['password']), 
                 'is_active' => true,
             ]);
@@ -461,15 +500,13 @@ class AdminController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
-
-        // Validasi Update (NIK DIHAPUS)
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'pin' => 'required|string|max:10',
             'location' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
             'email' => 'nullable|email|unique:users,email,' . $id,
-            'password' => 'required|min:6', // Diwajibkan sesuai permintaan
+            'password' => 'nullable|min:6',
         ]);
 
         try {
@@ -477,14 +514,19 @@ class AdminController extends Controller
                 return redirect()->route('admin.index', ['tab' => 'data_user'])->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
             }
 
-            $user->update([
+            $updateData = [
                 'name' => $validated['name'],
                 'pin' => $validated['pin'],
                 'location' => $validated['location'],
                 'role' => $validated['role'],
                 'email' => $validated['email'] ?? $user->email,
-                'password' => Hash::make($validated['password']),
-            ]);
+            ];
+
+            if (!empty($validated['password'])) {
+                $updateData['password'] = Hash::make($validated['password']);
+            }
+
+            $user->update($updateData);
 
             return redirect()->route('admin.index', ['tab' => 'data_user'])->with('success', 'Data user berhasil diperbarui.');
         } catch (\Exception $e) {
@@ -530,14 +572,23 @@ class AdminController extends Controller
             $status = 'SELESAI';
         }
 
-        $tipeExport = strtoupper($item->jenis_layanan ?? $defaultType);
+        $fitur = strtoupper($defaultType);
+        $subKategori = '-';
+        if (isset($item->jenis_layanan)) {
+            $subKategori = strtoupper($item->jenis_layanan);
+        } elseif (isset($item->jenis_dokumen)) {
+            $subKategori = strtoupper($item->jenis_dokumen);
+        } elseif (isset($item->kategori)) {
+            $subKategori = strtoupper($item->kategori);
+        }
 
         return [
-            'tipe' => $tipeExport,
+            'fitur' => $fitur,
+            'sub_kategori' => $subKategori,
             'pelapor' => $item->user->name ?? 'N/A',
             'wilayah' => strtoupper($item->user->location ?? 'LUAR WILAYAH'),
             'nik_target' => $item->nik_aktivasi ?? ($item->nik_luar_daerah ?? ($item->nik_pemohon ?? '-')),
-            'alasan' => $item->alasan ?? ($item->jenis_dokumen ?? ($item->deskripsi ?? ($item->kategori ?? '-'))),
+            'alasan' => $item->alasan ?? ($item->deskripsi ?? ($item->deskripsi_masalah ?? '-')),
             'status' => $status,
             'tanggapan' => $item->tanggapan_admin ?? '-',
             'admin' => $item->processed_by ?? '-',
@@ -545,98 +596,57 @@ class AdminController extends Controller
         ];
     }
 
-    public function exportAktivasi(Request $request)
+    /**
+     * FUNGSI PERBAIKAN: Routing Export Berdasarkan Fitur
+     */
+    public function exportAktivasi(Request $request) 
     {
+        $request->merge(['type' => 'aktivasi']);
+        return $this->exportExcel($request);
+    }
+
+    public function exportUpdateData(Request $request) 
+    {
+        $request->merge(['type' => 'updatedata']);
+        return $this->exportExcel($request);
+    }
+
+    public function exportSistem(Request $request) 
+    {
+        $request->merge(['type' => 'sistem']);
+        return $this->exportExcel($request);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        date_default_timezone_set('Asia/Jakarta');
         $timezone = 'Asia/Jakarta';
         $nowJakarta = Carbon::now($timezone);
 
+        $mode = $request->query('type'); 
         $monthFilter = $request->query('month');
         $statusFilter = $request->query('status');
         $kecamatanFilter = $request->query('kecamatan');
         $kategoriFilter = $request->query('kategori');
 
-        $combined = collect();
-
-        foreach (Aktivasi::with('user')->get() as $item) {
-            $combined->push($this->formatExportRow($item, 'AKTIVASI', $timezone));
-        }
-
-        foreach (LuarDaerah::with('user')->get() as $item) {
-            $combined->push($this->formatExportRow($item, 'LUAR DAERAH', $timezone));
-        }
-        
-        foreach (UpdateData::with('user')->get() as $item) {
-            $combined->push($this->formatExportRow($item, 'UPDATE DATA', $timezone));
-        }
-
-        if ($monthFilter) {
-            $combined = $combined->filter(fn($i) => $i['tanggal']->format('m') == $monthFilter);
-        }
-        if ($statusFilter) {
-            $combined = $combined->filter(fn($i) => strtolower($i['status']) == strtolower($statusFilter));
-        }
-        if ($kecamatanFilter) {
-            $combined = $combined->filter(fn($i) => $i['wilayah'] === strtoupper($kecamatanFilter));
-        }
-        if ($kategoriFilter) {
-            $combined = $combined->filter(fn($i) => $i['tipe'] === strtoupper($kategoriFilter));
-        }
-
-        // Untuk Export, tetap urutkan dari yang paling lama ke terbaru
-        $sorted = $combined->sortBy('tanggal')->values();
-        $filename = "rekap_layanan_kependudukan_" . $nowJakarta->format('Ymd_His') . ".csv";
-        $header = ['NO', 'JENIS LAYANAN', 'PELAPOR', 'WILAYAH', 'NIK TARGET', 'ALASAN/DOKUMEN', 'STATUS', 'TANGGAPAN', 'ADMIN', 'TANGGAL'];
-
-        return response()->stream(function () use ($sorted, $header) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($file, $header);
-
-            foreach ($sorted as $index => $row) {
-                fputcsv($file, [
-                    $index + 1,
-                    $row['tipe'],
-                    $row['pelapor'],
-                    $row['wilayah'],
-                    $row['nik_target'],
-                    $row['alasan'],
-                    $row['status'],
-                    $row['tanggapan'],
-                    $row['admin'],
-                    $row['tanggal']->format('d/m/Y H:i')
-                ]);
-            }
-            fclose($file);
-        }, 200, [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma" => "no-cache",
-            "Expires" => "0",
-        ]);
-    }
-
-    public function exportExcel(Request $request)
-    {
-        $timezone = 'Asia/Jakarta';
-        $nowJakarta = Carbon::now($timezone);
-
-        $mode = $request->query('category', 'sistem');
-        $monthFilter = $request->query('month');
-        $statusFilter = $request->query('status');
-        $kecamatanFilter = $request->query('kecamatan_id');
-
+        // Tentukan Query dasar berdasarkan mode
         $queries = match ($mode) {
-            'aktivasi' => [
+            'updatedata' => ['UPDATE DATA' => UpdateData::with('user')],
+            'aktivasi'   => [
                 'AKTIVASI' => Aktivasi::with('user'), 
-                'LUAR DAERAH' => LuarDaerah::with('user'),
-                'UPDATE DATA' => UpdateData::with('user')
+                'LUAR DAERAH' => LuarDaerah::with('user')
             ],
-            'luardaerah' => ['LUAR DAERAH' => LuarDaerah::with('user')],
-            default => [
+            'trouble'    => ['TROUBLE' => Trouble::with('user')],
+            'pengajuan'  => ['SIAK' => Pengajuan::with('user')],
+            'proxy'      => ['PROXY' => Proxy::with('user')],
+            'pembubuhan' => ['TTE' => Pembubuhan::with('user')],
+            default      => [
                 'TROUBLE' => Trouble::with('user'),
-                'SIAK' => Pengajuan::with('user'),
-                'PROXY' => Proxy::with('user'),
-                'TTE' => Pembubuhan::with('user'),
+                'SIAK'    => Pengajuan::with('user'),
+                'PROXY'   => Proxy::with('user'),
+                'TTE'     => Pembubuhan::with('user'),
+                'AKTIVASI' => Aktivasi::with('user'),
+                'LUAR DAERAH' => LuarDaerah::with('user'),
                 'UPDATE DATA' => UpdateData::with('user'),
             ],
         };
@@ -644,41 +654,61 @@ class AdminController extends Controller
         $allLaporans = collect();
         foreach ($queries as $label => $query) {
             foreach ($query->get() as $item) {
+                // Gunakan label asli dari switch match sebagai 'fitur'
                 $allLaporans->push($this->formatExportRow($item, $label, $timezone));
             }
         }
 
-        if ($monthFilter) {
+        // --- FILTERING COLLECTION ---
+        
+        if ($monthFilter && $monthFilter !== '') {
             $allLaporans = $allLaporans->filter(fn($i) => $i['tanggal']->format('m') == $monthFilter);
         }
-        if ($statusFilter) {
+        
+        if ($statusFilter && $statusFilter !== '') {
             $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['status']) == strtolower($statusFilter));
         }
-        if ($kecamatanFilter) {
-            $allLaporans = $allLaporans->filter(fn($i) => $i['wilayah'] === strtoupper($kecamatanFilter));
+        
+        if ($kecamatanFilter && $kecamatanFilter !== '') {
+            $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['wilayah']) === strtolower($kecamatanFilter));
+        }
+
+        // Perbaikan filter kategori agar mendeteksi 'LUAR DAERAH' (dengan spasi)
+        if ($kategoriFilter && $kategoriFilter !== '') {
+            $allLaporans = $allLaporans->filter(function($i) use ($kategoriFilter) {
+                // Menghapus spasi dan membandingkan secara case-insensitive
+                $cleanFitur = str_replace(' ', '', strtolower($i['fitur']));
+                $cleanKategori = str_replace([' ', '_'], '', strtolower($kategoriFilter));
+                return $cleanFitur === $cleanKategori;
+            });
         }
 
         $sortedExport = $allLaporans->sortBy('tanggal')->values();
-        $filename = "rekap_" . $mode . "_" . $nowJakarta->format('Ymd_His') . ".csv";
         
-        $header = ['NO', 'TIPE', 'PELAPOR', 'WILAYAH', 'DETAIL/NIK', 'STATUS', 'TANGGAPAN', 'ADMIN', 'TANGGAL'];
-        if ($mode === 'luardaerah') {
-            $header = ['NO', 'TIPE', 'PELAPOR', 'WILAYAH', 'NIK TARGET', 'DOKUMEN', 'STATUS', 'TANGGAPAN', 'ADMIN', 'TANGGAL'];
-        }
+        $fileLabel = $mode ?: 'sistem_terpadu';
+        $filename = "rekap_" . $fileLabel . "_" . $nowJakarta->format('Ymd_His') . ".csv";
+        
+        $header = ['NO', 'FITUR UTAMA', 'JENIS/KATEGORI', 'PELAPOR', 'WILAYAH', 'NIK/TARGET', 'DESKRIPSI/ALASAN', 'STATUS', 'TANGGAPAN ADMIN', 'PROSES OLEH', 'TANGGAL'];
 
-        return response()->stream(function () use ($sortedExport, $header, $mode) {
+        return response()->stream(function () use ($sortedExport, $header) {
             $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF)); 
             fputcsv($file, $header);
 
             foreach ($sortedExport as $index => $row) {
-                if ($mode === 'luardaerah') {
-                    $line = [$index + 1, $row['tipe'], $row['pelapor'], $row['wilayah'], $row['nik_target'], $row['alasan'], $row['status'], $row['tanggapan'], $row['admin'], $row['tanggal']->format('d/m/Y H:i')];
-                } else {
-                    $detail = ($row['nik_target'] !== '-') ? $row['nik_target'] : $row['alasan'];
-                    $line = [$index + 1, $row['tipe'], $row['pelapor'], $row['wilayah'], $detail, $row['status'], $row['tanggapan'], $row['admin'], $row['tanggal']->format('d/m/Y H:i')];
-                }
-                fputcsv($file, $line);
+                fputcsv($file, [
+                    $index + 1, 
+                    $row['fitur'], 
+                    $row['sub_kategori'], 
+                    $row['pelapor'], 
+                    $row['wilayah'], 
+                    "'" . $row['nik_target'], 
+                    $row['alasan'], 
+                    $row['status'], 
+                    $row['tanggapan'], 
+                    $row['admin'], 
+                    $row['tanggal']->format('d/m/Y H:i')
+                ]);
             }
             fclose($file);
         }, 200, [

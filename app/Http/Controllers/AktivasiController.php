@@ -5,65 +5,85 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Aktivasi;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class AktivasiController extends Controller
 {
     public function store(Request $request)
     {
-        // 1. Validasi diperketat dengan logika kondisional
+        // 1. Validasi diperbaiki untuk mendukung Multiple Files (Array)
         $request->validate([
             'nama_lengkap'  => 'required|string|max:255',
             'nik_aktivasi'  => 'required|numeric|digits:16',
-            'jenis_layanan' => 'required|in:restore,aktivasi', // Memastikan pilihan hanya 2 ini
+            'jenis_layanan' => 'required|in:RESTORE,AKTIVASI,restore,aktivasi',
             'alasan'        => 'nullable|string|max:1000',
-            
-            // LOGIKA UTAMA: 
-            // Jika jenis_layanan == restore, maka lampiran WAJIB (required)
-            // Jika jenis_layanan == aktivasi, maka lampiran BEBAS/OPSIONAL (nullable)
-            'lampiran'      => ($request->jenis_layanan === 'restore' ? 'required' : 'nullable') . '|image|mimes:jpeg,png,jpg|max:5120',
+            // Validasi lampiran sebagai array
+            'lampiran'      => [
+                'nullable',
+                'required_if:jenis_layanan,RESTORE,restore',
+                'array', 
+            ],
+            // Validasi tiap file di dalam array
+            'lampiran.*'    => 'image|mimes:jpeg,png,jpg|max:5120', // Max 5MB per file
         ], [
             'nik_aktivasi.digits'   => 'NIK harus berjumlah 16 digit.',
-            'nama_lengkap.required' => 'Nama lengkap wajib diisi sesuai KTP.',
-            'lampiran.required'     => 'Untuk layanan Restore Data, Anda wajib mengunggah lampiran foto/dokumen.',
-            'lampiran.image'        => 'File yang diunggah harus berupa gambar.',
+            'nik_aktivasi.numeric'  => 'NIK harus berupa angka.',
+            'lampiran.required_if'  => 'Untuk layanan Restore Data, Anda wajib mengunggah dokumen.',
+            'lampiran.*.image'      => 'File harus berupa gambar (JPG/PNG).',
+            'lampiran.*.max'        => 'Ukuran tiap gambar maksimal adalah 5MB.',
         ]);
 
+        DB::beginTransaction();
+        $storedPaths = []; // Array untuk menampung banyak path file
+
         try {
-            // 2. Proses Upload Lampiran (jika ada)
-            $path = null;
+            // 2. Proses Upload Banyak Lampiran
             if ($request->hasFile('lampiran')) {
-                $path = $request->file('lampiran')->store('aktivasi', 'public');
+                foreach ($request->file('lampiran') as $index => $file) {
+                    // Nama file unik: timestamp_nik_index.ext
+                    $fileName = time() . '_' . $request->nik_aktivasi . '_' . $index . '.' . $file->getClientOriginalExtension();
+                    
+                    // Simpan file asli (Tanpa resize agar tidak pecah)
+                    $path = $file->storeAs('aktivasi', $fileName, 'public');
+                    $storedPaths[] = $path;
+                }
             }
 
-            // 3. Menyiapkan data untuk disimpan
-            $dataToSave = [
-                'user_id'      => Auth::id(),
-                'nama_lengkap' => $request->nama_lengkap,
-                'nik_aktivasi' => $request->nik_aktivasi,
-                'alasan'       => $request->alasan ?? 'Permintaan Aktivasi NIK',
-                'foto_ktp'     => $path, // Berisi path file atau null jika tidak upload
-                'status'       => 'Pending',
-            ];
+            // 3. Eksekusi Simpan ke kolom FOTO_KTP
+            Aktivasi::create([
+                'user_id'       => Auth::id(),
+                'nama_lengkap'  => $request->nama_lengkap,
+                'nik_aktivasi'  => $request->nik_aktivasi,
+                'jenis_layanan' => strtoupper($request->jenis_layanan),
+                'alasan'        => $request->alasan ?? ($request->jenis_layanan === 'RESTORE' ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK'),
+                
+                // Jika banyak foto, simpan sebagai JSON. Jika satu, simpan string biasa.
+                // Sesuaikan dengan kebutuhan casting di Model Anda
+                'foto_ktp'      => count($storedPaths) > 0 ? json_encode($storedPaths) : null,
+                
+                'status'        => 'pending',
+            ]);
 
-            // 4. Pengaman: Hanya simpan jenis_layanan jika kolomnya sudah ada di database
-            // Ini mencegah error "Column not found" jika migrasi belum dijalankan
-            if (Schema::hasColumn('aktivasis', 'jenis_layanan')) {
-                $dataToSave['jenis_layanan'] = strtolower($request->jenis_layanan);
-            }
+            DB::commit();
 
-            // 5. Eksekusi simpan ke database
-            Aktivasi::create($dataToSave);
+            $pesan = (strtoupper($request->jenis_layanan) === 'RESTORE') 
+                ? 'Permintaan Restore Data berhasil terkirim!' 
+                : 'Permintaan Aktivasi NIK berhasil terkirim!';
 
-            $pesanSukses = ($request->jenis_layanan === 'restore') 
-                ? 'Permintaan Restore Data berhasil dikirim!' 
-                : 'Permintaan Aktivasi NIK berhasil dikirim!';
-
-            return back()->with('success', $pesanSukses);
+            return back()->with('success', $pesan);
 
         } catch (\Exception $e) {
-            // Menangkap error jika ada kegagalan sistem
-            return back()->withErrors(['loginError' => 'Gagal menyimpan data: ' . $e->getMessage()])->withInput();
+            DB::rollBack();
+
+            // Hapus semua file yang sempat terupload jika database gagal
+            foreach ($storedPaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            return back()
+                ->withErrors(['error' => 'Gagal mengirim permintaan: ' . $e->getMessage()])
+                ->withInput();
         }
     }
 }

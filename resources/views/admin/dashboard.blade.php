@@ -105,6 +105,25 @@
                     <span class="text-[10px] lg:text-sm font-bold mt-1 md:mt-0 lg:block hidden">Laporan Trouble</span>
                 </button>
 
+                <button @click="tab = 'laporan_update_data'"
+                    :class="tab === 'laporan_update_data' ? 'bg-orange-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'"
+                    class="flex-1 md:flex-none flex flex-col md:flex-row items-center md:space-x-3 p-2 md:p-3 lg:p-4 rounded-xl transition-all group">
+                    <i class="fas fa-user-edit text-lg"></i>
+                    <span class="text-[10px] lg:text-sm font-bold mt-1 md:mt-0 lg:block hidden">Update Data</span>
+
+                    @php $pendingUpdate = $updateDatas->where('status', 'pending')->count(); @endphp
+                    @if($pendingUpdate > 0)
+                        <span class="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span
+                                class="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] items-center justify-center text-white font-bold">
+                                {{ $pendingUpdate }}
+                            </span>
+                        </span>
+                    @endif
+                </button>
+
                 <div id="badge-notif-container">
                     @php $countPending = $laporans->whereNull('tanggapan_admin')->count(); @endphp
                     @if($countPending > 0)
@@ -293,64 +312,86 @@
                 {{-- STATS CARDS --}}
                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
                     @php
-                        /** * SINKRONISASI DATA
-                         * Menghitung ulang langsung dari source data agar akurat
+                        /** * SINKRONISASI DATA REAL-TIME
+                         * Menghitung data berdasarkan kolom spesifik di database
                          */
-                        $update_datas = $update_datas ?? collect();
+
+                        // 1. Data Utama (Count)
+                        $countSiak = $pengajuans->count();
+                        $countAktivasi = $aktivasis->count();
+                        $countUpdateData = ($update_datas ?? collect())->count();
+                        $countProxy = ($proxies ?? collect())->count();
+                        $countTte = ($pembubuhans ?? collect())->count();
+                        $countLuarDaerah = ($luarDaerahs ?? collect())->count();
+                        $countTrouble = ($troubles ?? collect())->count();
+                        $totalUserCount = $totalUser ?? 0;
+
+                        // 2. Pengelompokan Kategori/Jenis untuk Progress Bars
+                        // Kendala SIAK & Trouble menggunakan kolom 'kategori'
+                        $siakCategories = $pengajuans->groupBy('kategori')->map->count();
+                        $troubleCategories = ($troubles ?? collect())->groupBy('kategori')->map->count();
+
+                        // Aktivasi NIK & Update Data menggunakan kolom 'jenis_layanan'
+                        $aktivasiCategories = ($aktivasis ?? collect())->groupBy('jenis_layanan')->map->count();
+                        $updateCategories = ($update_datas ?? collect())->groupBy('jenis_layanan')->map->count();
+
+                        // Pembubuhan & Luar Daerah menggunakan kolom 'jenis_dokumen'
+                        $tteCategories = ($pembubuhans ?? collect())->groupBy('jenis_dokumen')->map->count();
+                        $luarDaerahCategories = ($luarDaerahs ?? collect())->groupBy('jenis_dokumen')->map->count();
 
                         $cards = [
                             [
                                 'label' => 'User',
-                                'val' => $totalUser ?? 0,
+                                'val' => $totalUserCount,
                                 'color' => 'slate-900',
                                 'icon' => 'fa-users',
                                 'txt' => 'white'
                             ],
                             [
                                 'label' => 'Kendala SIAK',
-                                'val' => $pengajuans->count(),
+                                'val' => $countSiak,
                                 'color' => 'white',
                                 'icon' => 'fa-database',
                                 'txt' => 'orange-500'
                             ],
                             [
                                 'label' => 'Aktivasi NIK',
-                                'val' => $aktivasis->count(),
+                                'val' => $countAktivasi,
                                 'color' => 'white',
                                 'icon' => 'fa-fingerprint',
                                 'txt' => 'blue-500'
                             ],
                             [
                                 'label' => 'Update Data',
-                                'val' => $update_datas->count(),
+                                'val' => $countUpdateData,
                                 'color' => 'white',
                                 'icon' => 'fa-sync-alt',
                                 'txt' => 'amber-500'
                             ],
                             [
                                 'label' => 'Proxy',
-                                'val' => $proxies->count(),
+                                'val' => $countProxy,
                                 'color' => 'white',
                                 'icon' => 'fa-network-wired',
                                 'txt' => 'emerald-500'
                             ],
                             [
                                 'label' => 'Pembubuhan',
-                                'val' => $pembubuhans->count(),
+                                'val' => $countTte,
                                 'color' => 'white',
                                 'icon' => 'fa-file-signature',
                                 'txt' => 'purple-500'
                             ],
                             [
                                 'label' => 'Luar Daerah',
-                                'val' => $luarDaerahs->count(),
+                                'val' => $countLuarDaerah,
                                 'color' => 'white',
                                 'icon' => 'fa-map-marked-alt',
                                 'txt' => 'cyan-500'
                             ],
                             [
                                 'label' => 'Trouble',
-                                'val' => $troubles->count(),
+                                'val' => $countTrouble,
                                 'color' => 'white',
                                 'icon' => 'fa-bug',
                                 'txt' => 'rose-500'
@@ -361,24 +402,20 @@
                     @foreach($cards as $c)
                         <div
                             class="bg-{{ $c['color'] }} p-4 rounded-[1.5rem] shadow-sm border border-slate-100 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group">
-                            {{-- Glow Indicator for White Cards --}}
                             @if($c['color'] == 'white')
                                 <div class="absolute top-0 left-0 w-1 h-full bg-{{ $c['txt'] }}"></div>
                             @endif
 
-                            {{-- Label --}}
                             <p
                                 class="text-{{ $c['txt'] }} text-[8px] font-black uppercase tracking-widest relative z-10 opacity-80 group-hover:opacity-100">
                                 {{ $c['label'] }}
                             </p>
 
-                            {{-- Angka --}}
                             <h2
                                 class="text-2xl font-black {{ $c['color'] == 'white' ? 'text-slate-800' : 'text-white' }} leading-tight relative z-10 mt-1">
                                 {{ $c['val'] }}
                             </h2>
 
-                            {{-- Background Icon --}}
                             <div
                                 class="absolute -right-2 -bottom-2 opacity-10 z-0 transition-transform group-hover:scale-110 duration-500">
                                 <i
@@ -414,13 +451,6 @@
                                 </div>
                             @endif
 
-                            @if($errors->any())
-                                <div
-                                    class="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-[10px] font-bold uppercase text-center">
-                                    <i class="fas fa-exclamation-triangle mr-2"></i> Semua field wajib diisi!
-                                </div>
-                            @endif
-
                             <form action="{{ route('admin.announcements.store') }}" method="POST" class="space-y-4">
                                 @csrf
                                 <div class="grid grid-cols-1 gap-4">
@@ -430,16 +460,13 @@
                                     <textarea name="message" rows="4" placeholder="Isi pesan pengumuman..." required
                                         class="w-full bg-[#242b3d] border border-slate-700 rounded-2xl px-6 py-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder:text-slate-500 font-medium resize-none"></textarea>
                                 </div>
-
                                 <input type="hidden" name="type" value="info">
-
                                 <button type="submit"
                                     class="w-full bg-orange-500 hover:bg-orange-600 text-white font-black uppercase italic py-5 rounded-2xl shadow-lg shadow-orange-900/40 transition-all transform hover:scale-[1.01] active:scale-[0.98] tracking-widest text-sm flex items-center justify-center gap-3">
                                     <i class="fas fa-paper-plane"></i> Publikasikan Sekarang
                                 </button>
                             </form>
                         </div>
-                        {{-- Watermark Icon --}}
                         <i
                             class="fas fa-bullhorn absolute -right-12 -bottom-12 text-white/5 text-[18rem] -rotate-12 pointer-events-none group-hover:text-white/[0.07] transition-all duration-700"></i>
                     </div>
@@ -474,11 +501,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                     @php
                         $catLists = [
-                            ['title' => 'Kategori Kendala SIAK', 'icon' => 'fa-database', 'color' => 'orange', 'data' => $siakCategories, 'total' => $countSiak],
-                            ['title' => 'Kategori Update Data', 'icon' => 'fa-sync-alt', 'color' => 'amber', 'data' => $updateCategories, 'total' => $countUpdateData],
-                            ['title' => 'Kategori TTE (Lokal)', 'icon' => 'fa-file-signature', 'color' => 'purple', 'data' => $tteCategories, 'total' => $countTte],
-                            ['title' => 'Kategori Luar Daerah', 'icon' => 'fa-map-marked-alt', 'color' => 'cyan', 'data' => $luarDaerahCategories, 'total' => $countLuarDaerah],
-                            ['title' => 'Kategori Trouble', 'icon' => 'fa-exclamation-triangle', 'color' => 'rose', 'data' => $troubleCategories, 'total' => $countTrouble]
+                            ['title' => 'Kendala SIAK (Kategori)', 'icon' => 'fa-database', 'color' => 'orange', 'data' => $siakCategories, 'total' => $countSiak],
+                            ['title' => 'Update Data (Jenis)', 'icon' => 'fa-sync-alt', 'color' => 'amber', 'data' => $updateCategories, 'total' => $countUpdateData],
+                            ['title' => 'Aktivasi NIK (Jenis)', 'icon' => 'fa-fingerprint', 'color' => 'blue', 'data' => $aktivasiCategories, 'total' => $countAktivasi],
+                            ['title' => 'Pembubuhan (Dokumen)', 'icon' => 'fa-file-signature', 'color' => 'purple', 'data' => $tteCategories, 'total' => $countTte],
+                            ['title' => 'Luar Daerah (Dokumen)', 'icon' => 'fa-map-marked-alt', 'color' => 'cyan', 'data' => $luarDaerahCategories, 'total' => $countLuarDaerah],
+                            ['title' => 'Sistem Trouble (Kategori)', 'icon' => 'fa-bug', 'color' => 'rose', 'data' => $troubleCategories, 'total' => $countTrouble]
                         ];
                     @endphp
 
@@ -496,7 +524,7 @@
                                     <div>
                                         <div
                                             class="flex justify-between text-[9px] font-bold mb-2 uppercase text-slate-600 tracking-tight">
-                                            <span>{{ $name ?: 'Umum' }}</span>
+                                            <span>{{ $name ?: 'Lainnya' }}</span>
                                             <span class="text-slate-900">{{ $count }}</span>
                                         </div>
                                         <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -523,7 +551,7 @@
                         new Chart(ctxDonut, {
                             type: 'doughnut',
                             data: {
-                                labels: ['SIAK', 'NIK', 'Update Data', 'TTE', 'Proxy', 'Trouble', 'Luar Daerah'],
+                                labels: ['SIAK', 'NIK', 'Update', 'TTE', 'Proxy', 'Trouble', 'Luar Daerah'],
                                 datasets: [{
                                     data: [
                         {{ $countSiak }},
@@ -534,7 +562,7 @@
                         {{ $countTrouble }},
                                         {{ $countLuarDaerah }}
                                     ],
-                                    backgroundColor: ['#f97316', '#3b82f6', '#f59e0b', '#8b5cf6', '#6366f1', '#f43f5e', '#06b6d4'],
+                                    backgroundColor: ['#f97316', '#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#f43f5e', '#06b6d4'],
                                     borderWidth: 0,
                                     hoverOffset: 15
                                 }]
@@ -553,14 +581,6 @@
                                             font: { size: 9, weight: '700' },
                                             color: '#64748b'
                                         }
-                                    },
-                                    tooltip: {
-                                        backgroundColor: '#1e293b',
-                                        padding: 12,
-                                        titleFont: { size: 12, weight: 'bold' },
-                                        bodyFont: { size: 11 },
-                                        cornerRadius: 8,
-                                        displayColors: true
                                     }
                                 }
                             }
@@ -630,12 +650,13 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1">Lokasi
-                                    Kecamatan</label>
+                                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1">
+                                    Lokasi Kecamatan
+                                </label>
                                 <div class="relative group">
                                     <input list="list_kecamatan" name="location" required value="{{ old('location') }}"
                                         placeholder="Pilih atau cari kecamatan..."
-                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none cursor-pointer appearance-none"
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none cursor-pointer"
                                         autocomplete="off">
 
                                     <datalist id="list_kecamatan" class="max-h-40 overflow-y-auto">
@@ -643,16 +664,10 @@
                                             <option value="{{ strtoupper($kec->nama_kecamatan) }}">
                                         @endforeach
                                     </datalist>
-
-                                    {{-- Icon indikator agar user tahu ini dropdown --}}
-                                    <div
-                                        class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
-                                        <i class="fas fa-search text-[10px]"></i>
-                                    </div>
                                 </div>
-                                <p class="text-[9px] text-slate-400 mt-1 ml-2 italic">*Ketik untuk mencari, klik
-                                    untuk
-                                    melihat daftar.</p>
+                                <p class="text-[9px] text-slate-400 mt-1 ml-2 italic">
+                                    *Ketik untuk mencari, atau klik pada kolom untuk melihat daftar.
+                                </p>
                             </div>
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1">PIN
@@ -812,7 +827,7 @@
                                 <input type="text" name="name" x-model="editData.name" required
                                     class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-sm font-bold text-slate-700 outline-none focus:border-orange-500 transition-all">
                             </div>
-    
+
                             <div>
                                 <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">PIN
                                     Keamanan</label>
@@ -876,10 +891,10 @@
             @php
                 // 1. Penggabungan Data Aktivasi & Luar Daerah
                 $combined = collect();
+
                 if (isset($aktivasis)) {
                     foreach ($aktivasis as $item) {
                         $item->row_type = 'AKTIVASI';
-                        // Mengambil jenis_layanan (Akte Kelahiran/Kematian) jika ada, jika tidak default ke AKTIVASI NIK
                         $item->display_category = strtoupper($item->jenis_layanan ?? 'AKTIVASI NIK');
                         $combined->push($item);
                     }
@@ -888,20 +903,10 @@
                 if (isset($luarDaerahs)) {
                     foreach ($luarDaerahs as $item) {
                         $item->row_type = 'LUARDAERAH';
-                        // PERBAIKAN: Mengambil jenis_dokumen (Cetak KTP/Update) dari database
                         $item->display_category = strtoupper($item->jenis_dokumen ?? 'LUAR DAERAH');
                         $combined->push($item);
                     }
                 }
-                // 3. Ambil Data Update (Sinkronisasi)
-                if (isset($updateDatas)) {
-                    foreach ($updateDatas as $item) {
-                        $item->row_type = 'UPDATE';
-                        $item->display_category = strtoupper($item->jenis_layanan ?? 'UPDATE DATA');
-                        $combined->push($item);
-                    }
-                }
-
 
                 // 2. Sorting Awal (FIFO & Status)
                 $sortedItems = $combined->sort(function ($a, $b) {
@@ -913,14 +918,29 @@
                     if ($priorityA !== $priorityB)
                         return $priorityA <=> $priorityB;
 
-                    // Gunakan Asia/Jakarta untuk perbandingan timestamp yang konsisten
                     return \Carbon\Carbon::parse($a->created_at)->timezone('Asia/Jakarta')->timestamp <=>
                         \Carbon\Carbon::parse($b->created_at)->timezone('Asia/Jakarta')->timestamp;
                 })->values();
 
-                // Mapping data ke array sederhana untuk JavaScript dengan Waktu Asia/Jakarta
+                // Mapping data ke array sederhana untuk JavaScript
                 $jsData = $sortedItems->map(function ($a) {
                     $dt = \Carbon\Carbon::parse($a->created_at)->timezone('Asia/Jakarta');
+
+                    // PERBAIKAN: Menangani Foto KTP yang sekarang berbentuk JSON/Array
+                    $fotoList = [];
+                    if ($a->foto_ktp) {
+                        // Decode jika string JSON, atau gunakan langsung jika sudah array (karena $casts)
+                        $decoded = is_array($a->foto_ktp) ? $a->foto_ktp : json_decode($a->foto_ktp, true);
+                        if (is_array($decoded)) {
+                            foreach ($decoded as $path) {
+                                $fotoList[] = asset('storage/' . $path);
+                            }
+                        } else {
+                            // Fallback jika isinya masih string path tunggal (data lama)
+                            $fotoList[] = asset('storage/' . $a->foto_ktp);
+                        }
+                    }
+
                     return [
                         'id' => $a->id,
                         'name' => strtoupper($a->user->name ?? 'User Tidak Dikenal'),
@@ -933,7 +953,8 @@
                         'kat_row' => $a->row_type,
                         'display_kat' => $a->display_category,
                         'is_restore' => (bool) ($a->is_restore ?? false),
-                        'foto_ktp' => $a->foto_ktp ? asset('storage/' . $a->foto_ktp) : null,
+                        // Simpan sebagai array agar bisa di-loop di Alpine
+                        'foto_ktp' => $fotoList,
                         'alasan' => $a->alasan ?? 'Tidak ada alasan',
                         'tanggapan' => $a->tanggapan_admin ?? '',
                         'url_respon' => route('admin.laporan.respon'),
@@ -943,13 +964,11 @@
                     ];
                 });
 
-                // Ambil daftar kecamatan unik untuk dropdown
                 $listKecamatan = $jsData->pluck('location')->unique()->sort()->values();
             @endphp
 
             <div x-show="tab === 'laporan_aktivasi'" x-data="{ 
-        /* Menggabungkan data aktivasi dan data update ke dalam satu array */
-        allData: [...{{ json_encode($jsData) }}, ...{{ json_encode($jsUpdateData ?? []) }}],
+        allData: [...{{ json_encode($jsData) }}],
         listKecamatan: {{ json_encode($listKecamatan) }},
         filterMonth: '{{ now()->timezone('Asia/Jakarta')->format('m') }}', 
         filterKecamatan: '',
@@ -961,8 +980,21 @@
         modalImage: '',
         modalType: '',
 
+        // FUNGSI EKSPOR DENGAN PARAMETER DINAMIS
+        exportToExcel() {
+            const baseUrl = '{{ route('export.laporan.aktivasi') }}';
+            const params = new URLSearchParams({
+                month: this.filterMonth,
+                kecamatan: this.filterKecamatan,
+                status: this.filterStatus,
+                kategori: this.filterKategori
+            });
+            
+            // Redirect ke URL dengan query string hasil filter
+            window.location.href = `${baseUrl}?${params.toString()}`;
+        },
+
         get filteredData() {
-            // 1. Lakukan Filtering
             let filtered = this.allData.filter(row => {
                 const kecMatch = this.filterKecamatan === '' || row.location === this.filterKecamatan;
                 const monthMatch = this.filterMonth === '' || row.month === this.filterMonth;
@@ -971,17 +1003,13 @@
                 return kecMatch && monthMatch && statusMatch && kategoriMatch;
             });
 
-            // 2. Lakukan Sorting: PENDING di atas (terlama dulu), SELESAI/DITOLAK di bawah
             return filtered.sort((a, b) => {
                 const statusOrder = { 'pending': 0, 'selesai': 1, 'ditolak': 2 };
                 const orderA = statusOrder[a.status] ?? 99;
                 const orderB = statusOrder[b.status] ?? 99;
-
-                if (orderA !== orderB) {
-                    return orderA - orderB;
-                }
-
-                // Jika status sama, urutkan berdasarkan waktu (Ascending: Terlama ke Terbaru)
+                
+                if (orderA !== orderB) return orderA - orderB;
+                
                 const dateA = new Date((a.date || '1970-01-01') + ' ' + (a.time || '00:00:00'));
                 const dateB = new Date((b.date || '1970-01-01') + ' ' + (b.time || '00:00:00'));
                 return dateA - dateB;
@@ -997,7 +1025,8 @@
         get totalPages() {
             return Math.max(1, Math.ceil(this.filteredData.length / this.perPage));
         }
-    }" x-transition x-cloak>
+     }" x-transition x-cloak>
+                }" x-transition x-cloak>
 
                 {{-- MODAL PREVIEW --}}
                 <div x-show="showModal"
@@ -1013,16 +1042,22 @@
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <div class="bg-white p-2 rounded-[2rem] shadow-2xl overflow-hidden">
+                        <div class="bg-white p-2 rounded-[2rem] shadow-2xl overflow-hidden text-center">
                             <img :src="modalImage" class="w-full h-auto max-h-[75vh] object-contain rounded-[1.5rem]">
+                            {{-- Tombol Download Original --}}
+                            <div class="mt-4 pb-2">
+                                <a :href="modalImage" download target="_blank"
+                                    class="bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all">
+                                    <i class="fas fa-download mr-2"></i> Buka Ukuran Asli
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {{-- HEADER TITLE --}}
                 <div class="mb-8">
-                    <h2 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">Monitoring
-                        Kendala
+                    <h2 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">Monitoring Kendala
                         Sistem</h2>
                     <p class="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-1">Urutan: Prioritas
                         Antrean Terlama (Pending) Di Atas</p>
@@ -1063,7 +1098,6 @@
                             <option value="">Semua Kategori</option>
                             <option value="AKTIVASI">AKTIVASI NIK/AKTE</option>
                             <option value="LUARDAERAH">LUAR DAERAH</option>
-                            <option value="UPDATE">UPDATE DATA</option>
                         </select>
                     </div>
                     <div class="flex-1 min-w-[150px]">
@@ -1072,18 +1106,15 @@
                             <option value="">Semua Status</option>
                             <option value="pending">⏳ Pending</option>
                             <option value="selesai">✅ Selesai</option>
+                            <option value="ditolak">❌ Ditolak</option>
                         </select>
                     </div>
 
-                    <a :href="'{{ route('export.laporan.aktivasi') }}?' + 
-            'month=' + filterMonth + 
-            '&kecamatan=' + filterKecamatan + 
-            '&status=' + filterStatus + 
-            '&kategori=' + filterKategori +
-            '&export_time={{ now()->timezone('Asia/Jakarta')->format('Y-m-d_H-i-s') }}'"
+                    {{-- Tombol Ekspor yang sudah diperbaiki --}}
+                    <button @click="exportToExcel()"
                         class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all hover:scale-105 active:scale-95">
                         <i class="fas fa-file-excel text-sm"></i> Ekspor Excel
-                    </a>
+                    </button>
                 </div>
 
                 {{-- TABLE CONTAINER --}}
@@ -1096,8 +1127,7 @@
                         <div class="flex items-center gap-6">
                             <div class="text-[11px] font-bold text-slate-500">
                                 Showing <span
-                                    x-text="filteredData.length > 0 ? ((currentPage - 1) * perPage) + 1 : 0"></span>
-                                to
+                                    x-text="filteredData.length > 0 ? ((currentPage - 1) * perPage) + 1 : 0"></span> to
                                 <span x-text="Math.min(currentPage * perPage, filteredData.length)"></span> of <span
                                     x-text="filteredData.length"></span> results
                             </div>
@@ -1131,195 +1161,175 @@
                                 <tr>
                                     <th class="p-8 w-1/4">Pengguna & Wilayah</th>
                                     <th class="p-8 w-52">Layanan & Jenis</th>
-                                    <th class="p-8 w-32">Bukti Foto</th>
+                                    <th class="p-8 w-44">Bukti Foto</th>
                                     <th class="p-8 w-1/3">Detail Kendala</th>
                                     <th class="p-8 w-1/4 text-orange-600">Respon Admin</th>
                                     <th class="p-8 w-40 text-right">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody class="text-sm font-bold text-slate-700 divide-y divide-slate-50">
-                                <template x-for="(row, index) in pagedData" :key="row.kat_row + '-' + row.id">
-                                    <tr class="hover:bg-slate-50/50 transition-all"
-                                        :class="row.status !== 'pending' ? 'opacity-60 bg-slate-50/30' : ''">
-                                        <td class="p-8">
-                                            <div class="flex flex-col gap-1.5">
-                                                <div class="text-slate-900 font-black text-[15px] leading-tight"
-                                                    x-text="row.name"></div>
-                                                <div
-                                                    class="text-[10px] text-blue-600 uppercase font-black tracking-widest flex items-center">
-                                                    <i class="fas fa-map-marker-alt mr-2 opacity-50"></i> <span
-                                                        x-text="row.location"></span>
-                                                </div>
-                                                <div class="mt-2 text-[9px] font-black flex items-center gap-2">
-                                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-500"
-                                                        x-text="row.kat_row"></span>
-                                                    <template x-if="row.status === 'selesai'">
-                                                        <span
-                                                            class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">SELESAI</span>
-                                                    </template>
-                                                    <template x-if="row.status === 'ditolak'">
-                                                        <span
-                                                            class="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">DITOLAK</span>
-                                                    </template>
-                                                    <template x-if="row.status === 'pending'">
-                                                        <span
-                                                            class="px-3 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-200 animate-pulse">MENUNGGU</span>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </td>
+                           <tbody class="text-sm font-bold text-slate-700 divide-y divide-slate-50">
+    <template x-for="(row, index) in pagedData" :key="row.kat_row + '-' + row.id">
+        <tr class="hover:bg-slate-50/50 transition-all"
+            :class="row.status !== 'pending' ? 'opacity-60 bg-slate-50/30' : ''">
+            
+            <td class="p-8 w-[200px]">
+                <div class="flex flex-col gap-1.5">
+                    <div class="text-slate-900 font-black text-[15px] leading-tight"
+                        x-text="row.name"></div>
+                    <div class="text-[10px] text-blue-600 uppercase font-black tracking-widest flex items-center">
+                        <i class="fas fa-map-marker-alt mr-2 opacity-50"></i> 
+                        <span x-text="row.location"></span>
+                    </div>
+                    <div class="mt-2 text-[9px] font-black flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-500"
+                            x-text="row.kat_row"></span>
+                        <template x-if="row.status === 'selesai'">
+                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">SELESAI</span>
+                        </template>
+                        <template x-if="row.status === 'ditolak'">
+                            <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">DITOLAK</span>
+                        </template>
+                        <template x-if="row.status === 'pending'">
+                            <span class="px-3 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-200 animate-pulse">MENUNGGU</span>
+                        </template>
+                    </div>
+                </div>
+            </td>
 
-                                        <td class="p-8">
-                                            <span
-                                                class="inline-block px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2"
-                                                :class="row.kat_row === 'AKTIVASI' ? 'border-blue-100 bg-blue-50 text-blue-700' : (row.kat_row === 'UPDATE' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700')"
-                                                x-text="row.display_kat">
-                                            </span>
-                                        </td>
+            <td class="p-8 w-[150px]">
+                <span class="inline-block px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2"
+                    :class="row.kat_row === 'AKTIVASI' ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700'"
+                    x-text="row.display_kat">
+                </span>
+            </td>
 
-                                        <td class="p-8">
-                                            <template x-if="row.foto_ktp">
-                                                <div class="relative group w-20 h-12 overflow-hidden rounded-2xl border-2 border-slate-200 cursor-pointer shadow-sm hover:border-blue-500 transition-all"
-                                                    @click="modalImage = row.foto_ktp; modalType = row.display_kat; showModal = true">
-                                                    <img :src="row.foto_ktp" class="w-full h-full object-cover">
-                                                    <div
-                                                        class="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <i class="fas fa-expand text-white"></i>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <template x-if="!row.foto_ktp">
-                                                <span
-                                                    class="text-slate-300 text-[10px] font-black tracking-widest italic">KOSONG</span>
-                                            </template>
-                                        </td>
+            <td class="p-8 w-[120px]">
+                <div class="grid grid-cols-2 gap-2">
+                    <template x-if="row.foto_ktp && row.foto_ktp.length > 0">
+                        <template x-for="(img, idx) in row.foto_ktp" :key="idx">
+                            <div class="relative group w-12 h-12 overflow-hidden rounded-xl border-2 border-slate-200 cursor-pointer shadow-sm hover:border-blue-500 transition-all"
+                                @click="modalImage = img; modalType = row.display_kat; showModal = true">
+                                <img :src="img" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <i class="fas fa-search-plus text-white text-[10px]"></i>
+                                </div>
+                            </div>
+                        </template>
+                    </template>
+                    <template x-if="!row.foto_ktp || row.foto_ktp.length === 0">
+                        <span class="text-slate-300 text-[10px] font-black tracking-widest italic">KOSONG</span>
+                    </template>
+                </div>
+            </td>
 
-                                        <td class="p-8">
-                                            <div
-                                                class="text-[13px] text-slate-700 font-bold mb-3 leading-relaxed bg-slate-50 border border-slate-200 p-5 rounded-2xl shadow-inner min-h-[60px]">
-                                                <i class="fas fa-quote-left text-blue-200 mb-1 block"></i>
-                                                <span x-text="row.alasan || row.keterangan || row.deskripsi || '-'"
-                                                    class="whitespace-pre-line"></span>
-                                            </div>
-                                            <div
-                                                class="text-[10px] text-slate-400 font-black uppercase flex items-center tracking-widest">
-                                                <i class="far fa-clock mr-2 text-blue-500"></i>
-                                                <span x-text="row.date_human"></span> • <span x-text="row.time"></span>
-                                                <span class="ml-1 text-[8px] opacity-70">(WIB)</span>
-                                            </div>
-                                        </td>
+            <td class="p-8 max-w-[300px]">
+                <div class="text-[13px] text-slate-700 font-bold mb-3 leading-relaxed bg-slate-50 border border-slate-200 p-5 rounded-2xl shadow-inner min-h-[60px] break-words">
+                    <i class="fas fa-quote-left text-blue-200 mb-1 block"></i>
+                    <span x-text="row.alasan || '-'" class="whitespace-pre-line"></span>
+                </div>
+                <div class="text-[10px] text-slate-400 font-black uppercase flex items-center tracking-widest">
+                    <i class="far fa-clock mr-2 text-blue-500"></i>
+                    <span x-text="row.date_human"></span> • <span x-text="row.time"></span>
+                    <span class="ml-1 text-[8px] opacity-70">(WIB)</span>
+                </div>
+            </td>
 
-                                        <td class="p-8">
-                                            <template x-if="row.status === 'ditolak'">
-                                                <div class="flex flex-col gap-2">
-                                                    <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
-                                                        <p class="text-[11px] text-red-800 font-black leading-snug"
-                                                            x-text="row.tanggapan"></p>
-                                                    </div>
-                                                    <button @click="$el.nextElementSibling.classList.toggle('hidden')"
-                                                        class="text-left text-[9px] text-red-600 font-black underline uppercase tracking-widest">Edit
-                                                        Alasan</button>
-                                                    <div
-                                                        class="hidden mt-1 p-4 bg-white rounded-2xl shadow-xl border border-slate-200">
-                                                        <form :action="row.url_respon" method="POST">
-                                                            <input type="hidden" name="_token" :value="row.csrf">
-                                                            <input type="hidden" name="laporan_id" :value="row.id">
-                                                            <input type="hidden" name="type"
-                                                                :value="row.kat_row.toLowerCase()">
-                                                            <textarea name="admin_note" rows="2"
-                                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:ring-1 focus:ring-red-500 outline-none resize-none"
-                                                                x-text="row.tanggapan"></textarea>
-                                                            <button type="submit"
-                                                                class="w-full mt-2 bg-red-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Simpan</button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <template x-if="row.status !== 'ditolak'">
-                                                <form :action="row.url_respon" method="POST"
-                                                    class="flex flex-col gap-2">
-                                                    <input type="hidden" name="_token" :value="row.csrf">
-                                                    <input type="hidden" name="laporan_id" :value="row.id">
-                                                    <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                                                    <textarea name="admin_note" rows="2"
-                                                        placeholder="Tulis catatan verifikasi..."
-                                                        class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[11px] font-bold focus:ring-2 focus:ring-orange-500 outline-none resize-none transition-all shadow-sm"
-                                                        required x-text="row.tanggapan"></textarea>
-                                                    <button type="submit"
-                                                        class="w-full text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg transition-all"
-                                                        :class="row.tanggapan ? 'bg-slate-800 shadow-slate-200 hover:bg-black' : 'bg-orange-500 shadow-orange-200 hover:bg-orange-600'">
-                                                        <span
-                                                            x-text="row.tanggapan ? 'Update Tanggapan' : 'Kirim Verifikasi'"></span>
-                                                    </button>
-                                                </form>
-                                            </template>
-                                        </td>
+            <td class="p-8 w-[250px]">
+                <template x-if="row.status === 'ditolak'">
+                    <div class="flex flex-col gap-2">
+                        <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+                            <p class="text-[11px] text-red-800 font-black leading-snug" x-text="row.tanggapan"></p>
+                        </div>
+                        <button @click="$el.nextElementSibling.classList.toggle('hidden')"
+                            class="text-left text-[9px] text-red-600 font-black underline uppercase tracking-widest">Edit Alasan</button>
+                        <div class="hidden mt-1 p-4 bg-white rounded-2xl shadow-xl border border-slate-200">
+                            <form :action="row.url_respon" method="POST">
+                                <input type="hidden" name="_token" :value="row.csrf">
+                                <input type="hidden" name="laporan_id" :value="row.id">
+                                <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                                <textarea name="admin_note" rows="2"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:ring-1 focus:ring-red-500 outline-none resize-none"
+                                    x-text="row.tanggapan"></textarea>
+                                <button type="submit" class="w-full mt-2 bg-red-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Simpan</button>
+                            </form>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="row.status !== 'ditolak'">
+                    <form :action="row.url_respon" method="POST" class="flex flex-col gap-2">
+                        <input type="hidden" name="_token" :value="row.csrf">
+                        <input type="hidden" name="laporan_id" :value="row.id">
+                        <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                        <textarea name="admin_note" rows="2"
+                            placeholder="Tulis catatan verifikasi..."
+                            class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[11px] font-bold focus:ring-2 focus:ring-orange-500 outline-none resize-none transition-all shadow-sm"
+                            required x-text="row.tanggapan"></textarea>
+                        <button type="submit"
+                            class="w-full text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg transition-all"
+                            :class="row.tanggapan ? 'bg-slate-800 hover:bg-black' : 'bg-orange-500 hover:bg-orange-600'">
+                            <span x-text="row.tanggapan ? 'Update Tanggapan' : 'Kirim Verifikasi'"></span>
+                        </button>
+                    </form>
+                </template>
+            </td>
 
-                                        <td class="p-8 text-right">
-                                            <div class="flex flex-col items-center justify-center gap-3">
-                                                <template x-if="row.status === 'pending'">
-                                                    <form :action="row.url_tolak" method="POST"
-                                                        onsubmit="return confirm('Apakah Anda yakin ingin MENOLAK permohonan ini?')"
-                                                        class="w-full">
-                                                        <input type="hidden" name="_token" :value="row.csrf">
-                                                        <input type="hidden" name="type"
-                                                            :value="row.kat_row.toLowerCase()">
-                                                        <input type="hidden" name="admin_note"
-                                                            value="Data NIK tidak sinkron atau dokumen pendukung tidak jelas.">
-                                                        <button type="submit"
-                                                            class="group flex items-center justify-center w-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2.5 rounded-xl border border-red-200 hover:border-red-600 transition-all duration-300 shadow-sm">
-                                                            <i
-                                                                class="fas fa-times-circle mr-2 text-[10px] group-hover:scale-110 transition-transform"></i>
-                                                            <span
-                                                                class="text-[10px] font-black uppercase tracking-wider">Tolak
-                                                                Data</span>
-                                                        </button>
-                                                    </form>
-                                                </template>
+            <td class="p-8 w-[150px] text-right">
+                <div class="flex flex-col items-center justify-center gap-3">
+                    <template x-if="row.status === 'pending'">
+                        <form :action="row.url_tolak" method="POST"
+                            onsubmit="return confirm('Apakah Anda yakin ingin MENOLAK?')"
+                            class="w-full">
+                            <input type="hidden" name="_token" :value="row.csrf">
+                            <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                            <input type="hidden" name="admin_note" value="Data NIK tidak sinkron atau dokumen pendukung tidak jelas.">
+                            <button type="submit"
+                                class="group flex items-center justify-center w-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2.5 rounded-xl border border-red-200 transition-all shadow-sm">
+                                <i class="fas fa-times-circle mr-2 text-[10px]"></i>
+                                <span class="text-[10px] font-black uppercase tracking-wider">Tolak Data</span>
+                            </button>
+                        </form>
+                    </template>
 
-                                                <form :action="row.url_hapus" method="POST"
-                                                    onsubmit="return confirm('PERINGATAN: Hapus data secara permanen?')"
-                                                    class="w-full">
-                                                    <input type="hidden" name="_token" :value="row.csrf">
-                                                    <input type="hidden" name="_method" value="DELETE">
-                                                    <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                                                    <button type="submit"
-                                                        class="group flex items-center justify-center w-full bg-slate-50 hover:bg-slate-900 text-slate-500 hover:text-white px-4 py-2.5 rounded-xl border border-slate-200 hover:border-slate-900 transition-all duration-300">
-                                                        <i
-                                                            class="fas fa-trash-alt mr-2 text-[10px] group-hover:shake transition-transform"></i>
-                                                        <span
-                                                            class="text-[10px] font-black uppercase tracking-wider">Hapus</span>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </template>
+                    <form :action="row.url_hapus" method="POST"
+                        onsubmit="return confirm('PERINGATAN: Hapus data secara permanen?')"
+                        class="w-full">
+                        <input type="hidden" name="_token" :value="row.csrf">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                        <button type="submit"
+                            class="group flex items-center justify-center w-full bg-slate-50 hover:bg-slate-900 text-slate-500 hover:text-white px-4 py-2.5 rounded-xl border border-slate-200 transition-all">
+                            <i class="fas fa-trash-alt mr-2 text-[10px]"></i>
+                            <span class="text-[10px] font-black uppercase tracking-wider">Hapus</span>
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+    </template>
 
-                                <tr x-show="filteredData.length === 0">
-                                    <td colspan="6" class="p-32 text-center">
-                                        <div class="flex flex-col items-center justify-center opacity-20">
-                                            <i class="fas fa-folder-open text-7xl mb-6"></i>
-                                            <span class="text-2xl font-black uppercase tracking-[0.4em]">Data
-                                                Kosong</span>
-                                            <p class="mt-2 font-bold text-slate-500 uppercase text-xs">Tidak ada
-                                                data
-                                                yang sesuai filter</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
+    <tr x-show="filteredData.length === 0">
+        <td colspan="6" class="p-32 text-center">
+            <div class="flex flex-col items-center justify-center opacity-20">
+                <i class="fas fa-folder-open text-7xl mb-6"></i>
+                <span class="text-2xl font-black uppercase tracking-[0.4em]">Data Kosong</span>
+                <p class="mt-2 font-bold text-slate-500 uppercase text-xs">Tidak ada data yang sesuai filter</p>
+            </div>
+        </td>
+    </tr>
+</tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
+
+
             {{-- FITUR LAPORAN KENDALA / SISTEM --}}
             <div x-show="tab === 'laporan_sistem'" x-data="{ 
-    filterType: '', 
-    filterMonth: '{{ now()->format('m') }}',
-    filterStatus: '',
-    filterKecamatan: '',
+    filterType: '{{ request('type') }}', 
+    filterMonth: '{{ request('month', now()->format('m')) }}',
+    filterStatus: '{{ request('status') }}',
+    filterKecamatan: '{{ request('kecamatan') }}',
     imgModal: false,
     imgModalSrc: '',
     imgModalKategori: '',
@@ -1329,12 +1339,20 @@
     async updateContent(url) {
         this.isLoading = true;
         try {
-            {{-- Tambahkan state filter saat ini ke URL request --}}
             const currentUrl = new URL(url);
+            {{-- Sinkronisasi State Alpine ke URL Search Params --}}
             if (this.filterStatus) currentUrl.searchParams.set('status', this.filterStatus);
+            else currentUrl.searchParams.delete('status');
+            
             if (this.filterType) currentUrl.searchParams.set('type', this.filterType);
+            else currentUrl.searchParams.delete('type');
+            
             if (this.filterKecamatan) currentUrl.searchParams.set('kecamatan', this.filterKecamatan);
+            else currentUrl.searchParams.delete('kecamatan');
+            
             if (this.filterMonth) currentUrl.searchParams.set('month', this.filterMonth);
+            else currentUrl.searchParams.delete('month');
+            
             currentUrl.searchParams.set('tab', 'laporan_sistem');
 
             const response = await fetch(currentUrl.href);
@@ -1345,7 +1363,7 @@
             
             document.querySelector('#ajax-laporan-wrapper').innerHTML = newTable;
             
-            {{-- Update URL tanpa refresh untuk mempertahankan state --}}
+            {{-- Update URL tanpa refresh --}}
             window.history.pushState({}, '', currentUrl.href);
         } catch (e) {
             console.error('Gagal memuat data:', e);
@@ -1354,22 +1372,19 @@
     },
 
     init() {
-        {{-- Ambil status awal dari URL jika ada --}}
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('status')) this.filterStatus = urlParams.get('status');
+        {{-- Watcher untuk semua filter agar otomatis update saat berubah --}}
+        this.$watch('filterStatus', () => this.triggerUpdate());
+        this.$watch('filterType', () => this.triggerUpdate());
+        this.$watch('filterMonth', () => this.triggerUpdate());
+        this.$watch('filterKecamatan', () => this.triggerUpdate());
 
-        {{-- Scroll ke tabel jika URL mengandung page --}}
+        {{-- Scroll ke tabel jika ada paginasi --}}
+        const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('page') && urlParams.get('tab') === 'laporan_sistem') {
             this.$nextTick(() => {
                 this.$el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
-
-        {{-- WATCHER: Triger update saat dropdown status berubah --}}
-        this.$watch('filterStatus', () => {
-            const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
-            this.updateContent(baseUrl);
-        });
 
         {{-- Intercept klik pada paginasi --}}
         document.addEventListener('click', (e) => {
@@ -1381,7 +1396,13 @@
         });
     },
 
+    triggerUpdate() {
+        const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+        this.updateContent(baseUrl);
+    },
+
     shouldShow(type, date, status, kecamatanName) {
+        {{-- Fungsi ini tetap dipertahankan untuk keamanan visual (client-side) --}}
         const monthMatch = this.filterMonth === '' || date.split('-')[1] === this.filterMonth;
         const typeMatch = this.filterType === '' || type === this.filterType;
         const statusMatch = this.filterStatus === '' || status === this.filterStatus;
@@ -1389,7 +1410,7 @@
         
         return monthMatch && typeMatch && statusMatch && kecMatch;
     }
- }" x-transition x-cloak>
+}" x-transition x-cloak>
 
                 {{-- WRAPPER ID UNTUK AJAX --}}
                 <div id="ajax-laporan-wrapper"
@@ -1402,26 +1423,23 @@
                             <div
                                 class="w-12 h-12 border-4 border-slate-200 border-t-orange-500 rounded-full animate-spin">
                             </div>
-                            <p class="mt-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                Memproses
+                            <p class="mt-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Memproses
                                 Data...</p>
                         </div>
                     </div>
 
-                    {{-- LOGIKA PAGINASI & PENGURUTAN --}}
+                    {{-- LOGIKA PAGINASI & PENGURUTAN (SERVER SIDE) --}}
                     @php
                         \Carbon\Carbon::setLocale('id');
 
-                        // PERBAIKAN: Memastikan hanya mengambil tipe yang ada di dropdown kategori
-                        // dan mengecualikan data yang wilayahnya LUAR DAERAH/LUAR WILAYAH jika itu syaratnya
+                        // 1. Filter Dasar Kategori Sistem
                         $laporanSistem = $sortedLaporans->whereIn('type', ['trouble', 'proxy', 'pembubuhan', 'pengajuan'])
                             ->filter(function ($item) {
                                 $wilayah = strtoupper($item->wilayah ?? '');
-                                // Saring agar data 'LUAR DAERAH' atau 'LUAR WILAYAH' tidak masuk ke list sistem ini
                                 return !str_contains($wilayah, 'LUAR');
                             });
 
-                        // Filter status di sisi Server (PHP) untuk memastikan paginasi akurat
+                        // 2. Filter Berdasarkan Request URL (Agar sinkron dengan AJAX)
                         if (request('status')) {
                             $laporanSistem = $laporanSistem->filter(function ($item) {
                                 $currStatus = $item->is_rejected ? 'ditolak' : (!empty($item->tanggapan_admin) ? 'selesai' : 'pending');
@@ -1429,6 +1447,23 @@
                             });
                         }
 
+                        if (request('type')) {
+                            $laporanSistem = $laporanSistem->where('type', request('type'));
+                        }
+
+                        if (request('kecamatan')) {
+                            $laporanSistem = $laporanSistem->filter(function ($item) {
+                                return strtoupper($item->wilayah) == strtoupper(request('kecamatan'));
+                            });
+                        }
+
+                        if (request('month')) {
+                            $laporanSistem = $laporanSistem->filter(function ($item) {
+                                return \Carbon\Carbon::parse($item->created_at)->format('m') == request('month');
+                            });
+                        }
+
+                        // 3. Pengurutan: Pending di atas, lalu berdasarkan tanggal terkecil (terlama)
                         $sortedLaporanSistem = $laporanSistem->sort(function ($a, $b) {
                             $statusA = !empty($a->tanggapan_admin) || $a->is_rejected ? 1 : 0;
                             $statusB = !empty($b->tanggapan_admin) || $b->is_rejected ? 1 : 0;
@@ -1439,6 +1474,7 @@
                             return $statusA - $statusB;
                         });
 
+                        // 4. Manual Pagination
                         $currentPage = request()->get('page', 1);
                         $perPage = 10;
                         $displayLaporans = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -1506,10 +1542,11 @@
                                         <option value="">Semua Status</option>
                                         <option value="pending">⏳ Menunggu</option>
                                         <option value="selesai">✅ Selesai</option>
+                                        <option value="ditolak">❌ Ditolak</option>
+
                                     </select>
                                 </div>
 
-                                {{-- PERBAIKAN LINK EKSPOR EXCEL --}}
                                 <a :href="'{{ route('admin.laporan.export') }}?category=sistem_terpadu' + 
                         '&export_time={{ now()->timezone('Asia/Jakarta')->format('Y-m-d_H-i-s') }}' +
                         (filterType ? '&type=' + filterType : '') + 
@@ -1523,10 +1560,10 @@
 
                             <div
                                 class="flex justify-between items-center bg-slate-100/50 p-2 rounded-xl border border-slate-200">
-                                <span
-                                    class="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-tighter">Halaman
-                                    {{ $displayLaporans->currentPage() }} dari
-                                    {{ $displayLaporans->lastPage() }}</span>
+                                <span class="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-tighter">
+                                    Halaman {{ $displayLaporans->currentPage() }} dari
+                                    {{ $displayLaporans->lastPage() }}
+                                </span>
                                 <div class="pagination-wrapper scale-90">
                                     {{ $displayLaporans->links() }}
                                 </div>
@@ -1567,7 +1604,6 @@
                                         $isiLayanan = '-';
                                         if ($original) {
                                             if ($l->type == 'trouble') {
-                                                $labelLayanan = 'Kategori';
                                                 $isiLayanan = $original->kategori ?? $original->jenis_layanan ?? 'Sistem/SIAK';
                                             } elseif ($l->type == 'pengajuan') {
                                                 $labelLayanan = 'Kategori SIAK';
@@ -1585,10 +1621,8 @@
                                         $images = !empty($rawImages) ? (is_array(json_decode($rawImages, true)) ? json_decode($rawImages, true) : [$rawImages]) : [];
                                     @endphp
 
-                                    <tr x-show="shouldShow('{{ $l->type }}', '{{ $createdAt->format('Y-m-d') }}', '{{ $status }}', '{{ $namaKecamatan }}')"
-                                        x-transition:enter="transition ease-out duration-300"
+                                    <tr
                                         class="hover:bg-slate-50/80 transition-all border-b border-slate-100 {{ $status !== 'pending' ? 'opacity-75 grayscale-[0.5]' : '' }}">
-
                                         <td class="p-6">
                                             <div class="flex flex-col gap-2">
                                                 <div class="flex flex-wrap gap-1.5">
@@ -1603,15 +1637,19 @@
                                                     @endphp
                                                     <span
                                                         class="px-2 py-0.5 rounded text-[9px] font-black text-white {{ $curr['bg'] }} uppercase">{{ $curr['l'] }}</span>
-                                                    @if($status === 'selesai') <span
-                                                        class="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500 text-white">✅
-                                                        SELESAI</span>
-                                                    @elseif($status === 'ditolak') <span
-                                                        class="px-2 py-0.5 rounded text-[9px] font-black bg-red-500 text-white">❌
-                                                        DITOLAK</span>
-                                                    @else <span
-                                                        class="px-2 py-0.5 rounded text-[9px] font-black bg-orange-400 text-white animate-pulse">⏳
-                                                        MENUNGGU</span>
+
+                                                    @if($status === 'selesai')
+                                                        <span
+                                                            class="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500 text-white">✅
+                                                            SELESAI</span>
+                                                    @elseif($status === 'ditolak')
+                                                        <span
+                                                            class="px-2 py-0.5 rounded text-[9px] font-black bg-red-500 text-white">❌
+                                                            DITOLAK</span>
+                                                    @else
+                                                        <span
+                                                            class="px-2 py-0.5 rounded text-[9px] font-black bg-orange-400 text-white animate-pulse">⏳
+                                                            MENUNGGU</span>
                                                     @endif
                                                 </div>
                                                 <div>
@@ -1620,8 +1658,7 @@
                                                     </div>
                                                     <div
                                                         class="text-[10px] text-blue-600 uppercase font-black flex items-center mt-1">
-                                                        <i class="fas fa-map-marker-alt mr-1.5"></i>
-                                                        {{ $namaKecamatan }}
+                                                        <i class="fas fa-map-marker-alt mr-1.5"></i> {{ $namaKecamatan }}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1651,15 +1688,18 @@
                                             </div>
                                         </td>
 
+                                        {{-- DETAIL KENDALA: PERBAIKAN DI SINI --}}
                                         <td class="p-6">
-                                            <div
-                                                class="text-[11px] text-slate-600 font-bold italic mb-3 leading-relaxed bg-slate-50 p-3 rounded-2xl border-l-4 border-slate-200">
-                                                "{{ $l->pesan }}"
-                                            </div>
-                                            <div
-                                                class="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2">
-                                                <i class="far fa-clock text-blue-500"></i>
-                                                <span>{{ $createdAt->translatedFormat('d F Y, H:i') }} WIB</span>
+                                            <div class="flex flex-col max-w-[300px]">
+                                                <div
+                                                    class="text-[11px] text-slate-600 font-bold italic mb-3 leading-relaxed bg-slate-50 p-3 rounded-2xl border-l-4 border-slate-200 break-words whitespace-normal overflow-hidden">
+                                                    "{{ $l->pesan }}"
+                                                </div>
+                                                <div
+                                                    class="text-[10px] text-slate-500 font-black uppercase flex items-center gap-2">
+                                                    <i class="far fa-clock text-blue-500"></i>
+                                                    <span>{{ $createdAt->translatedFormat('d F Y, H:i') }} WIB</span>
+                                                </div>
                                             </div>
                                         </td>
 
@@ -1672,7 +1712,8 @@
                                                     <input type="hidden" name="type" value="{{ $l->type }}">
                                                     <textarea name="admin_note" rows="2"
                                                         class="w-full bg-white border border-slate-200 rounded-2xl py-2.5 px-4 text-[11px] font-bold focus:border-emerald-500 focus:ring-0 resize-none transition-all shadow-sm"
-                                                        required>{{ $l->tanggapan_admin }}</textarea>
+                                                        required
+                                                        placeholder="Tulis solusi...">{{ $l->tanggapan_admin }}</textarea>
                                                     <button type="submit"
                                                         class="w-full {{ empty($l->tanggapan_admin) ? 'bg-orange-500' : 'bg-slate-800' }} text-white py-2.5 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm hover:opacity-90 active:scale-95">
                                                         {{ empty($l->tanggapan_admin) ? '🚀 Kirim Respon' : '🔄 Perbarui Solusi' }}
@@ -1713,8 +1754,7 @@
                                         <td colspan="6" class="p-20 text-center">
                                             <div class="flex flex-col items-center justify-center opacity-20">
                                                 <i class="fas fa-shield-alt text-6xl mb-4"></i>
-                                                <span class="text-sm font-black uppercase tracking-widest">Tidak ada
-                                                    data
+                                                <span class="text-sm font-black uppercase tracking-widest">Tidak ada data
                                                     ditemukan</span>
                                             </div>
                                         </td>
@@ -1752,10 +1792,323 @@
                     </div>
                 </div>
             </div>
-    </div>
-    </main>
-    </div>
 
-</body>
+
+            <div x-show="tab === 'laporan_update_data'" x-data="{ 
+    allData: [...{{ json_encode($updateDatasJs) }}],
+    listKecamatan: {{ json_encode($kecamatans->pluck('nama_kecamatan')) }},
+    filterMonth: '{{ now()->timezone('Asia/Jakarta')->format('m') }}', 
+    filterKecamatan: '',
+    filterStatus: '',
+    currentPage: 1,
+    perPage: 10,
+    
+    // Logic Modal Detail
+    showEditModal: false,
+    selectedRow: {},
+
+    // Logic Modal Pratinjau Gambar (Baru)
+    imgModal: false,
+    imgModalSrc: '',
+    imgModalKategori: 'Lampiran Dokumen',
+
+    openEdit(row) {
+        this.selectedRow = {...row};
+        this.showEditModal = true;
+    },
+
+    openImgModal(src, kategori = 'Lampiran Dokumen') {
+        this.imgModalSrc = src;
+        this.imgModalKategori = kategori;
+        this.imgModal = true;
+    },
+
+    get filteredData() {
+        let filtered = this.allData.filter(row => {
+            const kecMatch = this.filterKecamatan === '' || row.location === this.filterKecamatan;
+            const monthMatch = this.filterMonth === '' || row.month === this.filterMonth;
+            const statusMatch = this.filterStatus === '' || row.status === this.filterStatus;
+            return kecMatch && monthMatch && statusMatch;
+        });
+
+        return filtered.sort((a, b) => {
+            const statusOrder = { 'pending': 0, 'selesai': 1, 'ditolak': 2 };
+            return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+        });
+    },
+
+    get pagedData() {
+        let start = (this.currentPage - 1) * this.perPage;
+        return this.filteredData.slice(start, start + this.perPage);
+    },
+
+    get totalPages() {
+        return Math.max(1, Math.ceil(this.filteredData.length / this.perPage));
+    }
+}" x-transition x-cloak class="relative space-y-6">
+
+                {{-- BAGIAN FILTER --}}
+                <div class="flex flex-wrap items-center gap-4 bg-white/50 p-2 rounded-3xl">
+                    <select x-model="filterMonth" @change="currentPage = 1"
+                        class="bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-w-[200px] shadow-sm">
+                        <option value="">Semua Bulan</option>
+                        @foreach(range(1, 12) as $m)
+                            <option value="{{ str_pad($m, 2, '0', STR_PAD_LEFT) }}">
+                                {{ Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <select x-model="filterKecamatan" @change="currentPage = 1"
+                        class="bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-w-[200px] shadow-sm">
+                        <option value="">Semua Wilayah</option>
+                        <template x-for="kec in listKecamatan" :key="kec">
+                            <option :value="kec" x-text="kec"></option>
+                        </template>
+                    </select>
+
+                    <select x-model="filterStatus" @change="currentPage = 1"
+                        class="bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/20 transition-all min-w-[200px] shadow-sm">
+                        <option value="">Semua Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="selesai">Selesai</option>
+                        <option value="ditolak">Ditolak</option>
+                    </select>
+
+                    <div class="ml-auto">
+                        <a :href="'{{ route('admin.laporan.export') }}?type=updatedata&month=' + filterMonth + '&kecamatan=' + filterKecamatan + '&status=' + filterStatus"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-200/50 transition-all">
+                            <i class="fas fa-file-excel"></i> Ekspor Excel
+                        </a>
+                    </div>
+                </div>
+
+                {{-- INFO HALAMAN & PAGINATION ATAS --}}
+                <div
+                    class="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex justify-between items-center">
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">
+                        Halaman <span class="text-slate-900" x-text="currentPage"></span> dari <span
+                            class="text-slate-900" x-text="totalPages"></span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-[11px] font-bold text-slate-500">Showing <span
+                                x-text="filteredData.length > 0 ? ((currentPage-1)*perPage)+1 : 0"></span> to <span
+                                x-text="Math.min(currentPage*perPage, filteredData.length)"></span> of <span
+                                x-text="filteredData.length"></span> results</span>
+                        <div class="flex border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                            <button @click="currentPage--" :disabled="currentPage === 1"
+                                class="px-4 py-2 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors border-r border-slate-200">
+                                <i class="fas fa-chevron-left text-xs text-slate-400"></i>
+                            </button>
+                            <div class="px-5 py-2 bg-slate-100 font-black text-xs flex items-center justify-center min-w-[40px]"
+                                x-text="currentPage"></div>
+                            <button @click="currentPage++" :disabled="currentPage === totalPages"
+                                class="px-4 py-2 bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                                <i class="fas fa-chevron-right text-xs text-slate-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- KONTEN DATA --}}
+                <div class="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+                    <div
+                        class="p-8 border-b border-slate-50 grid grid-cols-12 gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                        <div class="col-span-3">Pelapor & Wilayah</div>
+                        <div class="col-span-2 text-center">Layanan & NIK</div>
+                        <div class="col-span-1 text-center">Lampiran</div>
+                        <div class="col-span-2 text-center">Detail Perubahan</div>
+                        <div class="col-span-3 text-center text-orange-500">Respon Admin</div>
+                        <div class="col-span-1 text-right text-slate-400">Aksi</div>
+                    </div>
+
+                    <div class="divide-y divide-slate-100">
+                        <template x-for="row in pagedData" :key="row.id">
+                            <div
+                                class="p-8 grid grid-cols-12 gap-4 items-start hover:bg-slate-50/50 transition-all group">
+
+                                {{-- Nama & Wilayah --}}
+                                <div class="col-span-2 space-y-2">
+                                    {{-- Teks Nama: Slate-900 (Sangat Jelas) --}}
+                                    <div class="text-lg font-black text-slate-900 leading-tight" x-text="row.name">
+                                    </div>
+
+                                    {{-- Teks Lokasi: Blue-700 (Kontras Tinggi) --}}
+                                    <div class="flex items-center text-[10px] font-black text-blue-700 uppercase">
+                                        <i class="fas fa-map-marker-alt mr-2 text-blue-500"></i>
+                                        <span x-text="row.location"></span>
+                                    </div>
+
+                                    <div class="pt-2">
+                                        <span :class="{
+                        'bg-orange-100 text-orange-800 border-orange-300': row.status === 'pending',
+                        'bg-emerald-100 text-emerald-800 border-emerald-300': row.status === 'selesai',
+                        'bg-red-100 text-red-800 border-red-300': row.status === 'ditolak'
+                    }" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border"
+                                            x-text="row.status === 'pending' ? 'MENUNGGU' : row.status"></span>
+                                    </div>
+                                </div>
+
+                                {{-- Layanan & NIK --}}
+                                <div class="col-span-2 text-center space-y-2">
+                                    {{-- Label Layanan: Slate-700 --}}
+                                    <div class="text-[10px] font-black text-slate-700 uppercase tracking-tighter"
+                                        x-text="row.jenis_layanan"></div>
+
+                                    {{-- Angka NIK: Latar belakang bg-slate-200 agar teks Slate-900 menonjol --}}
+                                    <div class="font-mono text-sm font-black text-slate-900 p-2 bg-slate-200 rounded-xl inline-block border border-slate-300"
+                                        x-text="row.nik_pemohon || '-'"></div>
+                                </div>
+
+                                {{-- Lampiran --}}
+                                <div class="col-span-1 flex flex-wrap justify-center gap-1">
+                                    <template x-if="row.lampiran">
+                                        <div class="flex flex-wrap justify-center gap-1">
+                                            <template x-if="Array.isArray(row.lampiran)">
+                                                <template x-for="(img, index) in row.lampiran" :key="index">
+                                                    <div class="w-8 h-10 rounded-lg border border-slate-400 overflow-hidden cursor-pointer hover:scale-110 transition-transform shadow-md"
+                                                        @click="openImgModal(img, row.name)">
+                                                        <img :src="img" class="w-full h-full object-cover">
+                                                    </div>
+                                                </template>
+                                            </template>
+                                            <template x-if="!Array.isArray(row.lampiran)">
+                                                <div class="w-10 h-12 rounded-lg border border-slate-400 overflow-hidden cursor-pointer hover:scale-110 transition-transform shadow-md"
+                                                    @click="openImgModal(row.lampiran, row.name)">
+                                                    <img :src="row.lampiran" class="w-full h-full object-cover">
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="!row.lampiran">
+                                        <div
+                                            class="w-full h-full bg-slate-100 flex items-center justify-center text-slate-500 py-4 border border-dashed border-slate-400 rounded-lg">
+                                            <i class="fas fa-image text-lg"></i>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                {{-- Detail Perubahan (Teks Rata Kiri & Warna Tegas) --}}
+                                <div class="col-span-3 px-2">
+                                    <div class="bg-white p-5 rounded-2xl border border-slate-300 relative min-h-[80px] flex flex-col justify-center cursor-pointer hover:bg-slate-50 transition-colors group/box shadow-sm"
+                                        @click="openEdit(row)">
+
+                                        <i
+                                            class="fas fa-quote-left absolute top-3 left-3 text-[10px] text-blue-500"></i>
+
+                                        <div class="w-full px-4 py-2">
+                                            {{-- Teks Deskripsi Rata Kiri & Slate-900 --}}
+                                            <div class="text-[11px] font-bold text-slate-900 italic leading-relaxed break-words break-all whitespace-normal text-left"
+                                                x-text="row.deskripsi || '-'">
+                                            </div>
+                                        </div>
+
+                                        {{-- Label Waktu: Blue-700 --}}
+                                        <div
+                                            class="mt-2 text-[9px] font-black text-blue-700 flex items-center justify-end px-2">
+                                            <i class="far fa-clock mr-1"></i> <span x-text="row.created_at"></span>
+                                        </div>
+
+                                        <div
+                                            class="absolute top-3 right-3 opacity-0 group-hover/box:opacity-100 transition-opacity">
+                                            <i class="fas fa-pen text-[8px] text-blue-600"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- Respon Admin (Metode Pemanggilan Diperbaiki) --}}
+                                <div class="col-span-3 px-4">
+                                    <form :action="row.url_respon" method="POST" class="space-y-3">
+                                        <input type="hidden" name="_token" :value="row.csrf">
+                                        <input type="hidden" name="laporan_id" :value="row.id">
+                                        <input type="hidden" name="type" value="updatedata">
+
+                                        <textarea name="admin_note" rows="2"
+                                            class="w-full bg-white border-2 border-slate-200 rounded-2xl p-3 text-[11px] font-bold text-slate-900 outline-none focus:border-orange-500 transition-all resize-none placeholder:text-slate-400"
+                                            placeholder="Tulis catatan verifikasi..."
+                                            x-model="row.tanggapan_admin"></textarea>
+
+                                        <button type="submit"
+                                            class="w-full bg-orange-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-orange-700 shadow-lg shadow-orange-100 active:scale-95 transition-all">
+                                            Kirim Respon
+                                        </button>
+                                    </form>
+                                </div>
+
+                                {{-- Aksi (Metode Pemanggilan Diperbaiki) --}}
+                                <div class="col-span-1 flex flex-col gap-2">
+                                    <form :action="'{{ url('admin/laporan/tolak') }}/' + row.id" method="POST"
+                                        onsubmit="return confirm('Tolak laporan ini?')">
+                                        <input type="hidden" name="_token" :value="row.csrf">
+                                        <input type="hidden" name="laporan_id" :value="row.id">
+                                        <input type="hidden" name="type" value="updatedata">
+                                        <button type="submit"
+                                            class="w-full bg-red-600 text-white py-2.5 rounded-xl text-[9px] font-black uppercase shadow-md hover:bg-red-700 transition-all border-b-4 border-red-800">
+                                            Tolak
+                                        </button>
+                                    </form>
+
+                                    <form :action="row.url_hapus" method="POST"
+                                        onsubmit="return confirm('Hapus permanen data ini?')">
+                                        <input type="hidden" name="_token" :value="row.csrf">
+                                        <input type="hidden" name="_method" value="DELETE">
+                                        <button type="submit"
+                                            class="w-full bg-slate-800 text-white py-2.5 rounded-xl text-[9px] font-black uppercase shadow-md hover:bg-black transition-all border-b-4 border-slate-950">
+                                            Hapus
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    {{-- MODAL PRATINJAU GAMBAR (LIGHTBOX) --}}
+                    <div x-show="imgModal"
+                        class="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm"
+                        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+                        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+                        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" x-cloak
+                        @click="imgModal = false">
+
+                        <div class="relative w-full max-w-4xl mx-auto" @click.stop>
+                            <div
+                                class="absolute -top-12 left-0 right-0 flex justify-between items-center text-white px-1">
+                                <div class="flex items-center gap-3">
+                                    <span
+                                        class="bg-emerald-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider shadow-lg shadow-emerald-500/20"
+                                        x-text="imgModalKategori"></span>
+                                    <span class="text-[10px] font-medium text-slate-300 uppercase tracking-widest"
+                                        x-text="imgModalSrc.split('/').pop()"></span>
+                                </div>
+
+                                <button @click="imgModal = false"
+                                    class="bg-white/10 hover:bg-red-500 w-10 h-10 rounded-full transition-all flex items-center justify-center group">
+                                    <i class="fas fa-times text-white group-hover:rotate-90 transition-transform"></i>
+                                </button>
+                            </div>
+
+                            <div class="bg-white p-2 rounded-[2rem] shadow-2xl ring-1 ring-white/20">
+                                <div
+                                    class="relative overflow-hidden rounded-[1.5rem] bg-slate-50 flex items-center justify-center min-h-[200px]">
+                                    <img :src="imgModalSrc"
+                                        class="w-full h-auto max-h-[75vh] object-contain shadow-inner">
+                                    <div class="absolute bottom-4 right-6 opacity-20 pointer-events-none">
+                                        <i class="fas fa-search-plus text-4xl text-slate-900"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-8 flex justify-center">
+                                <a :href="imgModalSrc" download target="_blank"
+                                    class="bg-white hover:bg-emerald-500 hover:text-white text-slate-900 px-10 py-4 rounded-2xl text-[11px] font-black uppercase flex items-center gap-3 transition-all shadow-[0_20px_50px_rgba(0,0,0,0.3)] active:scale-95 group">
+                                    <i
+                                        class="fas fa-download text-emerald-500 group-hover:text-white transition-colors"></i>
+                                    Simpan Gambar Ke Perangkat
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
 </html>

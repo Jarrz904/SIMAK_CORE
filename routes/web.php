@@ -5,9 +5,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AnnouncementController; 
-use App\Http\Controllers\PembubuhanController; // Tambahkan ini
-use App\Http\Controllers\LuarDaerahController; // Tambahkan ini
-use App\Http\Controllers\UpdateDataController; // Tambahkan ini untuk fitur baru
 
 /*
 |--------------------------------------------------------------------------
@@ -85,10 +82,17 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
             Route::get('/export', [AdminController::class, 'exportExcel'])->name('admin.laporan.export');
             
             /** * PERBAIKAN DI SINI:
-             * Menggunakan Route::match untuk mendukung GET dan POST sekaligus.
+             * Menambahkan rute spesifik untuk 3 kategori export laporan
              */
-            Route::get('/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
-            Route::post('/export-aktivasi', [AdminController::class, 'exportAktivasi']);
+            
+            // 1. Export Laporan Aktivasi (NIK & Luar Daerah)
+            Route::match(['get', 'post'], '/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
+            
+            // 2. Export Laporan Sistem (SIAK, Trouble, Proxy, TTE)
+            Route::match(['get', 'post'], '/export-sistem', [AdminController::class, 'exportSistem'])->name('export.laporan.sistem');
+            
+            // 3. Export Laporan Update Data (Biodata)
+            Route::match(['get', 'post'], '/export-updatedata', [AdminController::class, 'exportUpdateData'])->name('export.laporan.updatedata');
         });
 
         // --- ROUTE MANAJEMEN PENGUMUMAN ---
@@ -110,7 +114,7 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
          * 1. Route GET profile diarahkan kembali ke dashboard agar tidak error 404.
          * 2. Route update mendukung PUT dan POST (mengatasi MethodNotAllowed).
          */
-        Route::get('/user/profile', function() {
+        @Route::get('/user/profile', function() {
             return redirect()->route('user.dashboard');
         })->name('user.profile');
         
@@ -133,18 +137,9 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     // FITUR LAYANAN & BANTUAN (UMUM / MULTIROLE)
     // ==========================================
     Route::post('/pengajuan/store', [UserController::class, 'storePengajuan'])->name('pengajuan.store');
-    Route::post('/aktivasi-nik', [UserController::class, 'storeAktivasi'])->name('aktivasi.store');
+    @Route::post('/aktivasi-nik', [UserController::class, 'storeAktivasi'])->name('aktivasi.store');
     Route::post('/proxy-report', [UserController::class, 'storeProxy'])->name('proxy.store');
     Route::post('/trouble-report', [UserController::class, 'storeTrouble'])->name('trouble.store');
-
-});
-
-// --- ROUTE DIAGNOSTIK ---
-Route::get('/debug-email-view', function () {
-    $path = resource_path('views/emails/reset-password.blade.php');
-    if (file_exists($path)) {
-        return "✅ File ditemukan di: " . $path;
-    } else {
-        return "❌ File TIDAK ditemukan! Laravel mencari di: " . $path;
-    }
+// Tambahkan/pastikan baris ini ada di dalam Route::middleware('role:admin')
+Route::get('/admin/laporan/export-excel', [AdminController::class, 'exportExcel'])->name('export.excel');
 });
