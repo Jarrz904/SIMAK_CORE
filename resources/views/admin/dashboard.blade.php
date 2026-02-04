@@ -1167,156 +1167,180 @@
                                     <th class="p-8 w-40 text-right">Aksi</th>
                                 </tr>
                             </thead>
-                           <tbody class="text-sm font-bold text-slate-700 divide-y divide-slate-50">
-    <template x-for="(row, index) in pagedData" :key="row.kat_row + '-' + row.id">
-        <tr class="hover:bg-slate-50/50 transition-all"
-            :class="row.status !== 'pending' ? 'opacity-60 bg-slate-50/30' : ''">
-            
-            <td class="p-8 w-[200px]">
-                <div class="flex flex-col gap-1.5">
-                    <div class="text-slate-900 font-black text-[15px] leading-tight"
-                        x-text="row.name"></div>
-                    <div class="text-[10px] text-blue-600 uppercase font-black tracking-widest flex items-center">
-                        <i class="fas fa-map-marker-alt mr-2 opacity-50"></i> 
-                        <span x-text="row.location"></span>
-                    </div>
-                    <div class="mt-2 text-[9px] font-black flex items-center gap-2">
-                        <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-500"
-                            x-text="row.kat_row"></span>
-                        <template x-if="row.status === 'selesai'">
-                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">SELESAI</span>
-                        </template>
-                        <template x-if="row.status === 'ditolak'">
-                            <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">DITOLAK</span>
-                        </template>
-                        <template x-if="row.status === 'pending'">
-                            <span class="px-3 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-200 animate-pulse">MENUNGGU</span>
-                        </template>
-                    </div>
-                </div>
-            </td>
+                            <tbody class="text-sm font-bold text-slate-700 divide-y divide-slate-50">
+                                <template x-for="(row, index) in pagedData" :key="row.kat_row + '-' + row.id">
+                                    <tr class="hover:bg-slate-50/50 transition-all"
+                                        :class="row.status !== 'pending' ? 'opacity-60 bg-slate-50/30' : ''">
 
-            <td class="p-8 w-[150px]">
-                <span class="inline-block px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2"
-                    :class="row.kat_row === 'AKTIVASI' ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700'"
-                    x-text="row.display_kat">
-                </span>
-            </td>
+                                        <td class="p-8 w-[200px]">
+                                            <div class="flex flex-col gap-1.5">
+                                                <div class="text-slate-900 font-black text-[15px] leading-tight"
+                                                    x-text="row.name"></div>
+                                                <div
+                                                    class="text-[10px] text-blue-600 uppercase font-black tracking-widest flex items-center">
+                                                    <i class="fas fa-map-marker-alt mr-2 opacity-50"></i>
+                                                    <span x-text="row.location"></span>
+                                                </div>
+                                                <div class="mt-2 text-[9px] font-black flex items-center gap-2">
+                                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-500"
+                                                        x-text="row.kat_row"></span>
+                                                    <template x-if="row.status === 'selesai'">
+                                                        <span
+                                                            class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">SELESAI</span>
+                                                    </template>
+                                                    <template x-if="row.status === 'ditolak'">
+                                                        <span
+                                                            class="px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">DITOLAK</span>
+                                                    </template>
+                                                    <template x-if="row.status === 'pending'">
+                                                        <span
+                                                            class="px-3 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-200 animate-pulse">MENUNGGU</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </td>
 
-            <td class="p-8 w-[120px]">
-                <div class="grid grid-cols-2 gap-2">
-                    <template x-if="row.foto_ktp && row.foto_ktp.length > 0">
-                        <template x-for="(img, idx) in row.foto_ktp" :key="idx">
-                            <div class="relative group w-12 h-12 overflow-hidden rounded-xl border-2 border-slate-200 cursor-pointer shadow-sm hover:border-blue-500 transition-all"
-                                @click="modalImage = img; modalType = row.display_kat; showModal = true">
-                                <img :src="img" class="w-full h-full object-cover">
-                                <div class="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <i class="fas fa-search-plus text-white text-[10px]"></i>
-                                </div>
-                            </div>
-                        </template>
-                    </template>
-                    <template x-if="!row.foto_ktp || row.foto_ktp.length === 0">
-                        <span class="text-slate-300 text-[10px] font-black tracking-widest italic">KOSONG</span>
-                    </template>
-                </div>
-            </td>
+                                        <td class="p-8 w-[150px]">
+                                            <span
+                                                class="inline-block px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2"
+                                                :class="row.kat_row === 'AKTIVASI' ? 'border-blue-100 bg-blue-50 text-blue-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700'"
+                                                x-text="row.display_kat">
+                                            </span>
+                                        </td>
 
-            <td class="p-8 max-w-[300px]">
-                <div class="text-[13px] text-slate-700 font-bold mb-3 leading-relaxed bg-slate-50 border border-slate-200 p-5 rounded-2xl shadow-inner min-h-[60px] break-words">
-                    <i class="fas fa-quote-left text-blue-200 mb-1 block"></i>
-                    <span x-text="row.alasan || '-'" class="whitespace-pre-line"></span>
-                </div>
-                <div class="text-[10px] text-slate-400 font-black uppercase flex items-center tracking-widest">
-                    <i class="far fa-clock mr-2 text-blue-500"></i>
-                    <span x-text="row.date_human"></span> • <span x-text="row.time"></span>
-                    <span class="ml-1 text-[8px] opacity-70">(WIB)</span>
-                </div>
-            </td>
+                                        <td class="p-8 w-[120px]">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <template x-if="row.foto_ktp && row.foto_ktp.length > 0">
+                                                    <template x-for="(img, idx) in row.foto_ktp" :key="idx">
+                                                        <div class="relative group w-12 h-12 overflow-hidden rounded-xl border-2 border-slate-200 cursor-pointer shadow-sm hover:border-blue-500 transition-all"
+                                                            @click="modalImage = img; modalType = row.display_kat; showModal = true">
+                                                            <img :src="img" class="w-full h-full object-cover">
+                                                            <div
+                                                                class="absolute inset-0 bg-blue-600/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <i
+                                                                    class="fas fa-search-plus text-white text-[10px]"></i>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </template>
+                                                <template x-if="!row.foto_ktp || row.foto_ktp.length === 0">
+                                                    <span
+                                                        class="text-slate-300 text-[10px] font-black tracking-widest italic">KOSONG</span>
+                                                </template>
+                                            </div>
+                                        </td>
 
-            <td class="p-8 w-[250px]">
-                <template x-if="row.status === 'ditolak'">
-                    <div class="flex flex-col gap-2">
-                        <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
-                            <p class="text-[11px] text-red-800 font-black leading-snug" x-text="row.tanggapan"></p>
-                        </div>
-                        <button @click="$el.nextElementSibling.classList.toggle('hidden')"
-                            class="text-left text-[9px] text-red-600 font-black underline uppercase tracking-widest">Edit Alasan</button>
-                        <div class="hidden mt-1 p-4 bg-white rounded-2xl shadow-xl border border-slate-200">
-                            <form :action="row.url_respon" method="POST">
-                                <input type="hidden" name="_token" :value="row.csrf">
-                                <input type="hidden" name="laporan_id" :value="row.id">
-                                <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                                <textarea name="admin_note" rows="2"
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:ring-1 focus:ring-red-500 outline-none resize-none"
-                                    x-text="row.tanggapan"></textarea>
-                                <button type="submit" class="w-full mt-2 bg-red-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Simpan</button>
-                            </form>
-                        </div>
-                    </div>
-                </template>
-                <template x-if="row.status !== 'ditolak'">
-                    <form :action="row.url_respon" method="POST" class="flex flex-col gap-2">
-                        <input type="hidden" name="_token" :value="row.csrf">
-                        <input type="hidden" name="laporan_id" :value="row.id">
-                        <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                        <textarea name="admin_note" rows="2"
-                            placeholder="Tulis catatan verifikasi..."
-                            class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[11px] font-bold focus:ring-2 focus:ring-orange-500 outline-none resize-none transition-all shadow-sm"
-                            required x-text="row.tanggapan"></textarea>
-                        <button type="submit"
-                            class="w-full text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg transition-all"
-                            :class="row.tanggapan ? 'bg-slate-800 hover:bg-black' : 'bg-orange-500 hover:bg-orange-600'">
-                            <span x-text="row.tanggapan ? 'Update Tanggapan' : 'Kirim Verifikasi'"></span>
-                        </button>
-                    </form>
-                </template>
-            </td>
+                                        <td class="p-8 max-w-[300px]">
+                                            <div
+                                                class="text-[13px] text-slate-700 font-bold mb-3 leading-relaxed bg-slate-50 border border-slate-200 p-5 rounded-2xl shadow-inner min-h-[60px] break-words">
+                                                <i class="fas fa-quote-left text-blue-200 mb-1 block"></i>
+                                                <span x-text="row.alasan || '-'" class="whitespace-pre-line"></span>
+                                            </div>
+                                            <div
+                                                class="text-[10px] text-slate-400 font-black uppercase flex items-center tracking-widest">
+                                                <i class="far fa-clock mr-2 text-blue-500"></i>
+                                                <span x-text="row.date_human"></span> • <span x-text="row.time"></span>
+                                                <span class="ml-1 text-[8px] opacity-70">(WIB)</span>
+                                            </div>
+                                        </td>
 
-            <td class="p-8 w-[150px] text-right">
-                <div class="flex flex-col items-center justify-center gap-3">
-                    <template x-if="row.status === 'pending'">
-                        <form :action="row.url_tolak" method="POST"
-                            onsubmit="return confirm('Apakah Anda yakin ingin MENOLAK?')"
-                            class="w-full">
-                            <input type="hidden" name="_token" :value="row.csrf">
-                            <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                            <input type="hidden" name="admin_note" value="Data NIK tidak sinkron atau dokumen pendukung tidak jelas.">
-                            <button type="submit"
-                                class="group flex items-center justify-center w-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2.5 rounded-xl border border-red-200 transition-all shadow-sm">
-                                <i class="fas fa-times-circle mr-2 text-[10px]"></i>
-                                <span class="text-[10px] font-black uppercase tracking-wider">Tolak Data</span>
-                            </button>
-                        </form>
-                    </template>
+                                        <td class="p-8 w-[250px]">
+                                            <template x-if="row.status === 'ditolak'">
+                                                <div class="flex flex-col gap-2">
+                                                    <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+                                                        <p class="text-[11px] text-red-800 font-black leading-snug"
+                                                            x-text="row.tanggapan"></p>
+                                                    </div>
+                                                    <button @click="$el.nextElementSibling.classList.toggle('hidden')"
+                                                        class="text-left text-[9px] text-red-600 font-black underline uppercase tracking-widest">Edit
+                                                        Alasan</button>
+                                                    <div
+                                                        class="hidden mt-1 p-4 bg-white rounded-2xl shadow-xl border border-slate-200">
+                                                        <form :action="row.url_respon" method="POST">
+                                                            <input type="hidden" name="_token" :value="row.csrf">
+                                                            <input type="hidden" name="laporan_id" :value="row.id">
+                                                            <input type="hidden" name="type"
+                                                                :value="row.kat_row.toLowerCase()">
+                                                            <textarea name="admin_note" rows="2"
+                                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:ring-1 focus:ring-red-500 outline-none resize-none"
+                                                                x-text="row.tanggapan"></textarea>
+                                                            <button type="submit"
+                                                                class="w-full mt-2 bg-red-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Simpan</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <template x-if="row.status !== 'ditolak'">
+                                                <form :action="row.url_respon" method="POST"
+                                                    class="flex flex-col gap-2">
+                                                    <input type="hidden" name="_token" :value="row.csrf">
+                                                    <input type="hidden" name="laporan_id" :value="row.id">
+                                                    <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                                                    <textarea name="admin_note" rows="2"
+                                                        placeholder="Tulis catatan verifikasi..."
+                                                        class="w-full bg-white border border-slate-200 rounded-2xl py-3 px-4 text-[11px] font-bold focus:ring-2 focus:ring-orange-500 outline-none resize-none transition-all shadow-sm"
+                                                        required x-text="row.tanggapan"></textarea>
+                                                    <button type="submit"
+                                                        class="w-full text-white py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg transition-all"
+                                                        :class="row.tanggapan ? 'bg-slate-800 hover:bg-black' : 'bg-orange-500 hover:bg-orange-600'">
+                                                        <span
+                                                            x-text="row.tanggapan ? 'Update Tanggapan' : 'Kirim Verifikasi'"></span>
+                                                    </button>
+                                                </form>
+                                            </template>
+                                        </td>
 
-                    <form :action="row.url_hapus" method="POST"
-                        onsubmit="return confirm('PERINGATAN: Hapus data secara permanen?')"
-                        class="w-full">
-                        <input type="hidden" name="_token" :value="row.csrf">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
-                        <button type="submit"
-                            class="group flex items-center justify-center w-full bg-slate-50 hover:bg-slate-900 text-slate-500 hover:text-white px-4 py-2.5 rounded-xl border border-slate-200 transition-all">
-                            <i class="fas fa-trash-alt mr-2 text-[10px]"></i>
-                            <span class="text-[10px] font-black uppercase tracking-wider">Hapus</span>
-                        </button>
-                    </form>
-                </div>
-            </td>
-        </tr>
-    </template>
+                                        <td class="p-8 w-[150px] text-right">
+                                            <div class="flex flex-col items-center justify-center gap-3">
+                                                <template x-if="row.status === 'pending'">
+                                                    <form :action="row.url_tolak" method="POST"
+                                                        onsubmit="return confirm('Apakah Anda yakin ingin MENOLAK?')"
+                                                        class="w-full">
+                                                        <input type="hidden" name="_token" :value="row.csrf">
+                                                        <input type="hidden" name="type"
+                                                            :value="row.kat_row.toLowerCase()">
+                                                        <input type="hidden" name="admin_note"
+                                                            value="Data NIK tidak sinkron atau dokumen pendukung tidak jelas.">
+                                                        <button type="submit"
+                                                            class="group flex items-center justify-center w-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2.5 rounded-xl border border-red-200 transition-all shadow-sm">
+                                                            <i class="fas fa-times-circle mr-2 text-[10px]"></i>
+                                                            <span
+                                                                class="text-[10px] font-black uppercase tracking-wider">Tolak
+                                                                Data</span>
+                                                        </button>
+                                                    </form>
+                                                </template>
 
-    <tr x-show="filteredData.length === 0">
-        <td colspan="6" class="p-32 text-center">
-            <div class="flex flex-col items-center justify-center opacity-20">
-                <i class="fas fa-folder-open text-7xl mb-6"></i>
-                <span class="text-2xl font-black uppercase tracking-[0.4em]">Data Kosong</span>
-                <p class="mt-2 font-bold text-slate-500 uppercase text-xs">Tidak ada data yang sesuai filter</p>
-            </div>
-        </td>
-    </tr>
-</tbody>
+                                                <form :action="row.url_hapus" method="POST"
+                                                    onsubmit="return confirm('PERINGATAN: Hapus data secara permanen?')"
+                                                    class="w-full">
+                                                    <input type="hidden" name="_token" :value="row.csrf">
+                                                    <input type="hidden" name="_method" value="DELETE">
+                                                    <input type="hidden" name="type" :value="row.kat_row.toLowerCase()">
+                                                    <button type="submit"
+                                                        class="group flex items-center justify-center w-full bg-slate-50 hover:bg-slate-900 text-slate-500 hover:text-white px-4 py-2.5 rounded-xl border border-slate-200 transition-all">
+                                                        <i class="fas fa-trash-alt mr-2 text-[10px]"></i>
+                                                        <span
+                                                            class="text-[10px] font-black uppercase tracking-wider">Hapus</span>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <tr x-show="filteredData.length === 0">
+                                    <td colspan="6" class="p-32 text-center">
+                                        <div class="flex flex-col items-center justify-center opacity-20">
+                                            <i class="fas fa-folder-open text-7xl mb-6"></i>
+                                            <span class="text-2xl font-black uppercase tracking-[0.4em]">Data
+                                                Kosong</span>
+                                            <p class="mt-2 font-bold text-slate-500 uppercase text-xs">Tidak ada data
+                                                yang sesuai filter</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
