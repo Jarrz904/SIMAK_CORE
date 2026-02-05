@@ -25,7 +25,7 @@ class UserSeeder extends Seeder
             'email'     => 'ahmad@gmail.com',
             'pin'       => '123456',          // Identitas Login User (PIN)
             'password'  => Hash::make('user123'),  // Password: user123
-            'role'      => 'penduduk',
+            'role'      => 'user',
         ]);
     }
 }
