@@ -332,7 +332,8 @@
                                     class="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase leading-none tracking-[0.1em] sm:tracking-widest mb-1">
                                     Waktu Sistem</p>
                                 <p class="text-xs sm:text-sm font-black text-slate-800 whitespace-nowrap">
-                                    {{ date('d M Y') }}</p>
+                                    {{ date('d M Y') }}
+                                </p>
                             </div>
                             <div
                                 class="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 rounded-lg sm:rounded-xl flex items-center justify-center text-orange-500">
