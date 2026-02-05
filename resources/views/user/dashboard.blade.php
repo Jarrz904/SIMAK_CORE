@@ -1075,7 +1075,7 @@
                                             </option>
                                             <option value="KONSOLIDASI MANUAL" {{ old('jenis_dokumen_luar') == 'KONSOLIDASI MANUAL' ? 'selected' : '' }}>
                                                 Konsolidasi Manual</option>
-                                            <option value="PEMBARUAN DATA LUAR" {{ old('jenis_dokumen_luar') == 'PEMBARUAN DATA LUAR' ? 'selected' : '' }}>Update Data Luar</option>
+                                            <option value="PEMBARUAN DATA LUAR" {{ old('jenis_dokumen_luar') == 'PEMBARUAN DATA LUAR' ? 'selected' : '' }}>Update/Pembaruan Data Luar</option>
                                             <option value="REKAM KTP" {{ old('jenis_dokumen_luar') == 'REKAM KTP' ? 'selected' : '' }}>Rekam KTP</option>
                                             <option value="CETAK KTP" {{ old('jenis_dokumen_luar') == 'CETAK KTP' ? 'selected' : '' }}>Cetak KTP</option>
                                         </select>

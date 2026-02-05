@@ -109,19 +109,8 @@
                     :class="tab === 'laporan_update_data' ? 'bg-orange-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-400'"
                     class="flex-1 md:flex-none flex flex-col md:flex-row items-center md:space-x-3 p-2 md:p-3 lg:p-4 rounded-xl transition-all group">
                     <i class="fas fa-user-edit text-lg"></i>
-                    <span class="text-[10px] lg:text-sm font-bold mt-1 md:mt-0 lg:block hidden">Update Data</span>
-
-                    @php $pendingUpdate = $updateDatas->where('status', 'pending')->count(); @endphp
-                    @if($pendingUpdate > 0)
-                        <span class="absolute -top-1 -right-1 flex h-4 w-4">
-                            <span
-                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span
-                                class="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] items-center justify-center text-white font-bold">
-                                {{ $pendingUpdate }}
-                            </span>
-                        </span>
-                    @endif
+                    <span class="text-[10px] lg:text-sm font-bold mt-1 md:mt-0 lg:block hidden">Laporan Update
+                        Data</span>
                 </button>
 
                 <div id="badge-notif-container">
@@ -243,14 +232,12 @@
 
                             <div x-show="open" x-transition:opacity
                                 class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[998] sm:hidden"
-                                @click="open = false">
-                            </div>
+                                @click="open = false"></div>
 
                             <div x-show="open" @click.away="open = false"
                                 x-transition:enter="transition ease-out duration-200"
                                 x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-                                x-transition:enter-end="opacity-100 scale-100 translate-y-0" x-cloak /* Perubahan:
-                                Menggunakan 'fixed' dan 'inset-x-4' di mobile agar ke tengah, 'absolute' di desktop */
+                                x-transition:enter-end="opacity-100 scale-100 translate-y-0" x-cloak
                                 class="fixed inset-x-4 top-20 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 w-auto sm:w-80 md:w-96 bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl border border-slate-100 z-[999] overflow-hidden">
 
                                 <div
@@ -267,24 +254,54 @@
                                     class="max-h-[60vh] sm:max-h-[400px] overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 custom-scrollbar">
                                     @forelse($pendingNotifications as $notif)
                                         @php
-                                            $kategori = strtoupper($notif->kategori);
-                                            $targetTab = (Str::contains($kategori, 'NIK') || Str::contains($kategori, 'AKTIVASI') || Str::contains($kategori, 'UPDATE')) ? 'laporan_aktivasi' : 'laporan_sistem';
+                                            $kat = strtoupper($notif->kategori);
+
+                                            // 1. LOGIKA LAPORAN SISTEM / TROUBLE (Prioritas: SIAK, TROUBLE, PROXY, PEMBUBUHAN)
+                                            if (Str::contains($kat, 'SIAK') || Str::contains($kat, 'TROUBLE') || Str::contains($kat, 'PROXY') || Str::contains($kat, 'PEMBUBUHAN')) {
+                                                $targetTab = 'laporan_sistem';
+                                                $icon = 'fa-cogs';
+                                                $color = 'bg-orange-100 text-orange-600';
+                                            }
+                                            // 2. LOGIKA LAPORAN NIK (Aktivasi NIK, Luar Daerah)
+                                            elseif (Str::contains($kat, 'NIK') || Str::contains($kat, 'DAERAH')) {
+                                                $targetTab = 'laporan_aktivasi';
+                                                $icon = 'fa-fingerprint';
+                                                $color = 'bg-blue-100 text-blue-600';
+                                            }
+                                            // 3. LOGIKA LAPORAN UPDATE DATA (Hanya Perubahan Data User)
+                                            elseif (Str::contains($kat, 'PERUBAHAN') || Str::contains($kat, 'UPDATE')) {
+                                                $targetTab = 'laporan_update_data';
+                                                $icon = 'fa-user-edit';
+                                                $color = 'bg-emerald-100 text-emerald-600';
+                                            }
+                                            // FALLBACK
+                                            else {
+                                                $targetTab = 'laporan_sistem';
+                                                $icon = 'fa-database';
+                                                $color = 'bg-slate-100 text-slate-600';
+                                            }
                                         @endphp
+
                                         <div @click="tab = '{{ $targetTab }}'; open = false; window.scrollTo({top: 0, behavior: 'smooth'})"
-                                            class="group p-3 sm:p-4 bg-white border border-slate-50 rounded-xl sm:rounded-2xl flex items-start gap-3 sm:gap-4 hover:bg-orange-50 hover:border-orange-100 transition-all cursor-pointer">
+                                            class="group p-3 sm:p-4 bg-white border border-slate-50 rounded-xl sm:rounded-2xl flex items-start gap-3 sm:gap-4 hover:bg-slate-50 transition-all cursor-pointer border-l-4 {{ str_replace('bg-', 'border-', explode(' ', $color)[0]) }}">
 
                                             <div
-                                                class="bg-orange-100 text-orange-600 w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-lg sm:rounded-xl flex items-center justify-center text-xs sm:text-sm shadow-inner group-hover:scale-110 transition-transform">
-                                                <i
-                                                    class="fas {{ (Str::contains($kategori, 'NIK') || Str::contains($kategori, 'AKTIVASI') || Str::contains($kategori, 'UPDATE')) ? 'fa-fingerprint' : 'fa-database' }}"></i>
+                                                class="{{ $color }} w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-lg sm:rounded-xl flex items-center justify-center text-xs sm:text-sm shadow-inner group-hover:scale-110 transition-transform">
+                                                <i class="fas {{ $icon }}"></i>
                                             </div>
 
                                             <div class="flex-1 min-w-0">
                                                 <div class="flex flex-col">
+                                                    <div class="flex justify-between items-start">
+                                                        <span
+                                                            class="text-[9px] sm:text-[10px] font-black text-slate-800 uppercase leading-none truncate">{{ $notif->user_name }}</span>
+                                                        <span
+                                                            class="text-[7px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-black uppercase italic">{{ $notif->kategori }}</span>
+                                                    </div>
                                                     <span
-                                                        class="text-[9px] sm:text-[10px] font-black text-slate-800 uppercase leading-none truncate">{{ $notif->user_name }}</span>
-                                                    <span
-                                                        class="text-[7px] sm:text-[8px] text-slate-400 font-bold uppercase mt-1 tracking-tighter">{{ $notif->kategori }}</span>
+                                                        class="text-[7px] sm:text-[8px] text-slate-400 font-bold uppercase mt-1 tracking-tighter italic">
+                                                        📂 Menu: {{ str_replace('_', ' ', $targetTab) }}
+                                                    </span>
                                                 </div>
                                                 <p
                                                     class="text-[10px] sm:text-[11px] text-slate-500 mt-1 line-clamp-2 italic leading-relaxed">
@@ -301,8 +318,7 @@
                                             <i class="fas fa-check-double text-slate-200 text-xl sm:text-2xl mb-3"></i>
                                             <p
                                                 class="text-slate-400 font-bold text-[9px] sm:text-[10px] uppercase tracking-widest">
-                                                Tidak ada laporan baru
-                                            </p>
+                                                Tidak ada laporan baru</p>
                                         </div>
                                     @endforelse
                                 </div>
@@ -314,11 +330,9 @@
                             <div class="text-right">
                                 <p
                                     class="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase leading-none tracking-[0.1em] sm:tracking-widest mb-1">
-                                    Waktu <span class="hidden sm:inline">Sistem</span>
-                                </p>
+                                    Waktu Sistem</p>
                                 <p class="text-xs sm:text-sm font-black text-slate-800 whitespace-nowrap">
-                                    {{ date('d M Y') }}
-                                </p>
+                                    {{ date('d M Y') }}</p>
                             </div>
                             <div
                                 class="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 rounded-lg sm:rounded-xl flex items-center justify-center text-orange-500">
