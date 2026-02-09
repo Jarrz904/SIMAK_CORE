@@ -440,7 +440,7 @@ class UserController extends Controller
             'status' => 'Pending'
         ]);
 
-        return back()->with('status', 'Laporan kendala Proxy/Jaringan berhasil dikirim!');
+        return back()->with('status', 'Laporan kendala Proxy berhasil dikirim!');
     }
 
     /**
@@ -463,7 +463,7 @@ class UserController extends Controller
             'status' => 'Pending'
         ]);
 
-        return back()->with('status', 'Permohonan TTE berhasil dikirim!');
+        return back()->with('status', 'Pembubuhan berhasil dikirim!');
     }
 
     /**
