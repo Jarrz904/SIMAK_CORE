@@ -95,6 +95,8 @@
         <div
             class="max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 gap-0 bg-white md:shadow-2xl md:rounded-3xl overflow-hidden border-slate-200 relative h-full md:h-auto border">
 
+            
+{{-- Info section ada disini --}}
             <div id="info-section"
                 class="info-panel bg-slate-800 p-6 md:p-12 text-white flex flex-col justify-center relative overflow-hidden min-h-[500px]">
 
@@ -178,6 +180,8 @@
                 </div>
             </div>
 
+
+{{-- Login section disini --}}
             <div id="login-section" class="login-panel p-6 md:p-12 bg-white flex flex-col justify-center">
                 <div class="md:hidden slide-handle" onclick="closeLogin()"></div>
 

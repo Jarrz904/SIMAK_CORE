@@ -156,6 +156,8 @@
                 </script>
             </div>
         </aside>
+
+        {{-- Fitur Dashboard Admin --}}
         <main class="flex-1 p-8">
 
             <div x-show="tab === 'dashboard'" x-transition x-cloak class="max-w-6xl mx-auto">
@@ -624,7 +626,7 @@
             </div>
 
 
-
+            {{-- Fitur Kelola Akun --}}
             <div x-show="tab === 'tambah_akun'" x-data="{ 
     editModal: false, 
     editData: { id: '', name: '', email: '', location: '', role: '', pin: '' } 
@@ -1020,6 +1022,7 @@
                 $listKecamatan = $jsData->pluck('location')->unique()->sort()->values();
             @endphp
 
+            {{-- Fitur Laporan Aktivasi --}}
             <div x-show="tab === 'laporan_aktivasi'" x-data="{ 
         allData: [...{{ json_encode($jsData) }}],
         listKecamatan: {{ json_encode($listKecamatan) }},
@@ -1876,7 +1879,7 @@
             </div>
 
 
-            {{-- TAB LAPORAN UPDATE DATA --}}
+            {{-- FItur LAPORAN UPDATE DATA --}}
             <div x-show="tab === 'laporan_update_data'" x-data="{ 
     allData: [...{{ json_encode($updateDatasJs) }}],
     listKecamatan: {{ json_encode($kecamatans->pluck('nama_kecamatan')) }},
