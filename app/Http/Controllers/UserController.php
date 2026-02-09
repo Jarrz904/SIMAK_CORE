@@ -91,11 +91,11 @@ class UserController extends Controller
         $allNotifications = collect();
 
         // Helper function inside index to determine rejection
-        $checkRejected = function($status, $tanggapan) {
+        $checkRejected = function ($status, $tanggapan) {
             $s = strtolower($status ?? '');
             $t = strtolower($tanggapan ?? '');
             $rejectKeywords = ['tolak', 'gagal', 'salah', 'tidak ditemukan', 'tidak sesuai', 'perbaiki', 'revisi'];
-            
+
             $hasRejectKeyword = false;
             foreach ($rejectKeywords as $kw) {
                 if (str_contains($t, $kw)) {
@@ -103,14 +103,14 @@ class UserController extends Controller
                     break;
                 }
             }
-            
+
             return ($s === 'rejected' || $s === 'ditolak' || $hasRejectKeyword);
         };
 
         foreach ($troubles as $t) {
             $statusLower = strtolower($t->status ?? 'pending');
             $isRejected = $checkRejected($t->status, $t->tanggapan_admin);
-            
+
             $allNotifications->push((object) [
                 'id' => $t->id,
                 'group_key' => 'PC_CARD',
@@ -133,7 +133,7 @@ class UserController extends Controller
             $statusLower = strtolower($a->status ?? 'pending');
             $isRejected = $checkRejected($a->status, $a->tanggapan_admin);
             $prefix = strtoupper($a->jenis_layanan ?? 'AKTIVASI');
-            
+
             $allNotifications->push((object) [
                 'id' => $a->id,
                 'group_key' => 'NIK_CARD',
@@ -156,7 +156,7 @@ class UserController extends Controller
             $statusLower = strtolower($p->status ?? 'pending');
             $isRejected = $checkRejected($p->status, $p->tanggapan_admin);
             $kategoriTampil = !empty($p->kategori) ? $p->kategori : $p->jenis_registrasi;
-            
+
             $allNotifications->push((object) [
                 'id' => $p->id,
                 'group_key' => 'SIAK_CARD',
@@ -178,7 +178,7 @@ class UserController extends Controller
         foreach ($proxies as $pr) {
             $statusLower = strtolower($pr->status ?? 'pending');
             $isRejected = $checkRejected($pr->status, $pr->tanggapan_admin);
-            
+
             $allNotifications->push((object) [
                 'id' => $pr->id,
                 'group_key' => 'PROXY_CARD',
@@ -224,7 +224,7 @@ class UserController extends Controller
         foreach ($luardaerahs as $ld) {
             $statusLower = strtolower($ld->status ?? 'pending');
             $isRejected = $checkRejected($ld->status, $ld->tanggapan_admin);
-            
+
             $allNotifications->push((object) [
                 'id' => $ld->id,
                 'group_key' => 'LUAR_CARD',
@@ -246,7 +246,7 @@ class UserController extends Controller
         foreach ($updatedatas as $ud) {
             $statusLower = strtolower($ud->status ?? 'pending');
             $isRejected = $checkRejected($ud->status, $ud->tanggapan_admin);
-            
+
             $allNotifications->push((object) [
                 'id' => $ud->id,
                 'group_key' => 'UPDATE_CARD',

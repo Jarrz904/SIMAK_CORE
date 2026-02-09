@@ -179,7 +179,7 @@
                         let count = 0;
                         @foreach($allNotifications as $n)
                             @php 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            $nId = $n->id ?? ($n->_id ?? null);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    $nId = $n->id ?? ($n->_id ?? null);
                                 $tanggapanAdmin = $n->tanggapan_admin ?? ($n->tanggapan ?? null);
                             @endphp
                             @if(!empty($tanggapanAdmin) && $nId)
@@ -201,6 +201,8 @@
                 }" class="relative">
 
 
+
+                {{-- Fitur Dashboard User --}}
                 <div x-show="tab === 'dashboard'" x-transition x-cloak
                     class="max-w-7xl mx-auto p-4 md:p-6 space-y-6 -mt-4">
 
@@ -431,9 +433,9 @@
                                     }
                                 }
                             @endphp
-
                             @foreach($targetKategori as $key => $style)
                                 @php
+                                    // 1. Filter dan Urutkan: Prioritaskan status 'Proses', lalu berdasarkan waktu TERLAMA (Ascending) untuk Proses
                                     $riwayatKategori = $notifications->filter(function ($item) use ($key, $style) {
                                         $itemObj = (object) $item;
                                         $searchableText = strtoupper(
@@ -456,12 +458,34 @@
                                             }
                                         }
                                         return false;
-                                    })->sortByDesc(function ($item) {
-                                        $itemObj = (object) $item;
-                                        $dateStr = $itemObj->created_at ?? $itemObj->tanggal ?? now();
-                                        return \Carbon\Carbon::parse($dateStr)->timestamp;
+                                    })->sort(function ($a, $b) {
+                                        $a = (object) $a;
+                                        $b = (object) $b;
+
+                                        // Cek apakah sudah ada tanggapan
+                                        $aHasResp = !empty(trim($a->tanggapan_admin ?? $a->tanggapan ?? ''));
+                                        $bHasResp = !empty(trim($b->tanggapan_admin ?? $b->tanggapan ?? ''));
+
+                                        // LOGIKA 1: Status Proses (Tanpa Tanggapan) selalu di atas Selesai
+                                        if (!$aHasResp && $bHasResp)
+                                            return -1;
+                                        if ($aHasResp && !$bHasResp)
+                                            return 1;
+
+                                        // LOGIKA 2: Jika status sama
+                                        $dateA = \Carbon\Carbon::parse($a->created_at ?? $a->tanggal ?? now())->timestamp;
+                                        $dateB = \Carbon\Carbon::parse($b->created_at ?? $b->tanggal ?? now())->timestamp;
+
+                                        if (!$aHasResp) {
+                                            // Jika SESAMA PROSES: Urutkan dari yang TERLAMA (Ascending) agar antrian lama jadi Prioritas Utama
+                                            return $dateA <=> $dateB;
+                                        } else {
+                                            // Jika SESAMA SELESAI: Urutkan dari yang TERBARU (Descending) agar hasil terakhir terlihat
+                                            return $dateB <=> $dateA;
+                                        }
                                     });
 
+                                    // Ambil yang paling atas (Hasil sort: Proses Terlama atau Selesai Terbaru)
                                     $notif = $riwayatKategori->first() ? (object) $riwayatKategori->first() : null;
 
                                     $dokumenDisplay = '-';
@@ -583,43 +607,43 @@
                                         <div
                                             class="bg-slate-100/50 rounded-[1.5rem] md:rounded-[2rem] p-2 md:p-3 border border-slate-200 space-y-2 max-h-[150px] md:max-h-[180px] overflow-y-auto scrollbar-hide shadow-inner mx-1 md:mx-2">
                                             @foreach($riwayatKategori->skip(1)->take(5) as $hist)
-                                                @php
-                                                    $hist = (object) $hist;
-                                                    $dtHistKirim = \Carbon\Carbon::parse($hist->created_at ?? $hist->tanggal ?? now())->setTimezone('Asia/Jakarta');
-                                                    $histTanggapan = $hist->tanggapan_admin ?? $hist->tanggapan ?? '';
-                                                    $histHasResp = !empty(trim($histTanggapan));
-                                                    $histIsRejected = $histHasResp && (str_contains(strtolower($histTanggapan), 'tolak') || str_contains(strtolower($histTanggapan), 'gagal') || str_contains(strtolower($histTanggapan), 'tidak sinkron'));
-                                                    $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? $hist->jenis_layanan ?? '-';
-                                                    $dtHistBalas = \Carbon\Carbon::parse($hist->updated_at ?? $hist->created_at ?? now())->setTimezone('Asia/Jakarta');
-                                                    $formattedHistBalas = $dtHistBalas->translatedFormat('d F Y • H:i') . ' WIB';
-                                                @endphp
-                                                <div @click="selectedNotif = { 
-                                                                id: '{{ $hist->id ?? rand(1000, 9999) }}',
-                                                                kategori: '{{ $style['label'] }}', 
-                                                                kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
-                                                                jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
-                                                                jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
-                                                                pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
-                                                                tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
-                                                                full_date: '{{ $dtHistKirim->translatedFormat('d F Y • H:i') }} WIB',
-                                                                update_date: '{{ $formattedHistBalas }}',
-                                                                has_response: {{ $histHasResp ? 'true' : 'false' }},
-                                                                status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
-                                                                icon: '{{ $style['icon'] }}',
-                                                                color: '{{ $histIsRejected ? 'text-red-600' : ($histHasResp ? 'text-emerald-600' : 'text-slate-600') }}'
-                                                            }; showDetail = true;"
-                                                    class="group/item bg-white p-2.5 md:p-3 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] border border-slate-200 flex justify-between items-center cursor-pointer hover:border-slate-400 hover:shadow-sm transition-all">
-                                                    <div class="flex items-center gap-2 md:gap-3">
-                                                        <span
-                                                            class="w-2 h-2 rounded-full {{ $histHasResp ? ($histIsRejected ? 'bg-red-400' : 'bg-emerald-400') : 'bg-amber-400' }}"></span>
-                                                        <span
-                                                            class="font-black text-slate-600">{{ $dtHistKirim->format('d/m/Y') }}</span>
-                                                    </div>
-                                                    <span
-                                                        class="uppercase font-black px-2 py-0.5 rounded-md text-[8px] md:text-[9px] {{ $histHasResp ? ($histIsRejected ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50') : 'text-amber-600 bg-amber-50' }}">
-                                                        {{ $histHasResp ? ($histIsRejected ? 'Rejected' : 'Done') : 'Process' }}
-                                                    </span>
-                                                </div>
+                                                            @php
+                                                                $hist = (object) $hist;
+                                                                $dtHistKirim = \Carbon\Carbon::parse($hist->created_at ?? $hist->tanggal ?? now())->setTimezone('Asia/Jakarta');
+                                                                $histTanggapan = $hist->tanggapan_admin ?? $hist->tanggapan ?? '';
+                                                                $histHasResp = !empty(trim($histTanggapan));
+                                                                $histIsRejected = $histHasResp && (str_contains(strtolower($histTanggapan), 'tolak') || str_contains(strtolower($histTanggapan), 'gagal') || str_contains(strtolower($histTanggapan), 'tidak sinkron'));
+                                                                $histDokumen = $hist->jenis_dokumen ?? $hist->jenis_permasalahan ?? $hist->jenis_layanan ?? '-';
+                                                                $dtHistBalas = \Carbon\Carbon::parse($hist->updated_at ?? $hist->created_at ?? now())->setTimezone('Asia/Jakarta');
+                                                                $formattedHistBalas = $dtHistBalas->translatedFormat('d F Y • H:i') . ' WIB';
+                                                            @endphp
+                                                            <div @click="selectedNotif = { 
+                                                    id: '{{ $hist->id ?? rand(1000, 9999) }}',
+                                                    kategori: '{{ $style['label'] }}', 
+                                                    kategori_asli: '{{ cleanForJs($hist->kategori ?? $key) }}',
+                                                    jenis_layanan: '{{ cleanForJs($hist->jenis_permasalahan ?? $hist->jenis_layanan ?? $style['label']) }}',
+                                                    jenis_dokumen: '{{ cleanForJs($histDokumen) }}',
+                                                    pesan: '{{ cleanForJs($hist->deskripsi ?? $hist->pesan ?? '') }}', 
+                                                    tanggapan: '{{ $histHasResp ? cleanForJs($histTanggapan) : 'Dalam proses.' }}',
+                                                    full_date: '{{ $dtHistKirim->translatedFormat('d F Y • H:i') }} WIB',
+                                                    update_date: '{{ $formattedHistBalas }}',
+                                                    has_response: {{ $histHasResp ? 'true' : 'false' }},
+                                                    status: '{{ $histIsRejected ? 'Ditolak' : ($histHasResp ? 'Selesai' : 'Proses') }}',
+                                                    icon: '{{ $style['icon'] }}',
+                                                    color: '{{ $histIsRejected ? 'text-red-600' : ($histHasResp ? 'text-emerald-600' : 'text-slate-600') }}'
+                                                }; showDetail = true;"
+                                                                class="group/item bg-white p-2.5 md:p-3 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] border border-slate-200 flex justify-between items-center cursor-pointer hover:border-slate-400 hover:shadow-sm transition-all">
+                                                                <div class="flex items-center gap-2 md:gap-3">
+                                                                    <span
+                                                                        class="w-2 h-2 rounded-full {{ $histHasResp ? ($histIsRejected ? 'bg-red-400' : 'bg-emerald-400') : 'bg-amber-400' }}"></span>
+                                                                    <span
+                                                                        class="font-black text-slate-600">{{ $dtHistKirim->format('d/m/Y') }}</span>
+                                                                </div>
+                                                                <span
+                                                                    class="uppercase font-black px-2 py-0.5 rounded-md text-[8px] md:text-[9px] {{ $histHasResp ? ($histIsRejected ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50') : 'text-amber-600 bg-amber-50' }}">
+                                                                    {{ $histHasResp ? ($histIsRejected ? 'Rejected' : 'Done') : 'Process' }}
+                                                                </span>
+                                                            </div>
                                             @endforeach
                                         </div>
                                     @endif
@@ -698,8 +722,6 @@
                                                             class="text-[10px] text-slate-500 font-bold bg-slate-200/50 px-2 py-0.5 rounded"
                                                             x-text="selectedNotif.full_date"></span>
                                                     </div>
-                                                    {{-- Area yang diperbaiki: Menggunakan break-words dan menghapus
-                                                    pembatas tinggi --}}
                                                     <p class="text-slate-700 text-sm font-semibold italic leading-relaxed whitespace-pre-line break-words w-full"
                                                         x-text="selectedNotif.pesan"></p>
                                                 </div>
@@ -741,7 +763,8 @@
                 </div>
 
 
-                {{-- FORM LAPOR KENDALA SIAK --}}
+
+                {{-- Fitur KENDALA SIAK --}}
                 <div x-show="tab === 'registrasi'" x-transition x-cloak>
                     <div
                         class="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
@@ -903,7 +926,7 @@
                 </div>
 
 
-
+                {{-- Fitur Pembubuhan --}}
                 <div x-show="tab === 'pembubuhan'" x-transition:enter="transition ease-out duration-300"
                     x-transition:enter-start="opacity-0 transform scale-95"
                     x-transition:enter-end="opacity-100 transform scale-100" x-cloak>
@@ -1007,6 +1030,7 @@
                 </div>
 
 
+                {{-- Fitur Luar Daerah --}}
                 <div x-show="tab === 'luardaerah'" x-transition:enter="transition ease-out duration-300"
                     x-transition:enter-start="opacity-0 transform scale-95"
                     x-transition:enter-end="opacity-100 transform scale-100" x-cloak>
@@ -1116,6 +1140,7 @@
                 </div>
 
 
+                 {{-- Fitur Edit Profile --}}
                 <div x-show="tab === 'edit_profil'" x-transition x-cloak>
                     <div
                         class="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-slate-200 shadow-sm">
@@ -1207,6 +1232,7 @@
                 </div>
 
 
+                 {{-- Fitur Aktivasi --}}
                 <div x-show="tab === 'aktivasi'" x-transition x-cloak
                     x-data="{ jenisLayanan: '', fileCount: 0, isProcessingAktivasi: false }">
                     <div
@@ -1349,6 +1375,8 @@
                     </div>
                 </div>
 
+
+                {{-- Fitur Update Data --}}
                 <div x-show="tab === 'update_data'" x-transition x-cloak
                     x-data="{ jenisLayanan: '', fileCount: 0, files: [] }">
                     <div
@@ -1483,6 +1511,7 @@
                 </div>
 
 
+                 {{-- Fitur Proxy --}}
                 <div x-show="tab === 'proxy'" x-transition x-cloak>
                     <div
                         class="bg-indigo-600 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
@@ -1563,6 +1592,7 @@
                 </div>
 
 
+                 {{-- Fitur Trouble Sistem --}}
                 <div x-show="tab === 'trouble'" x-transition x-cloak>
                     <div
                         class="bg-red-50 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-red-200 shadow-sm">
