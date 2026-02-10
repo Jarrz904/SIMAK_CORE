@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
+use App\Events\LaporanUpdated; // Tambahkan Import Event
 
 class AdminController extends Controller
 {
@@ -392,6 +393,9 @@ class AdminController extends Controller
             $model->save();
             DB::commit();
 
+            // --- TRIGGER REAL-TIME EVENT ---
+            event(new LaporanUpdated("Laporan " . $request->type . " direspon oleh " . Auth::user()->name));
+
             $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Respon ' . ucfirst($request->type) . ' berhasil dikirim!');
         } catch (\Exception $e) {
@@ -443,6 +447,9 @@ class AdminController extends Controller
             $model->save();
             DB::commit();
 
+            // --- TRIGGER REAL-TIME EVENT ---
+            event(new LaporanUpdated("Laporan " . $request->type . " ditolak oleh " . Auth::user()->name));
+
             $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan ' . ucfirst($request->type) . ' telah ditolak.');
         } catch (\Exception $e) {
@@ -479,6 +486,10 @@ class AdminController extends Controller
             }
 
             $model->delete();
+
+            // --- TRIGGER REAL-TIME EVENT ---
+            event(new LaporanUpdated("Laporan dihapus oleh admin"));
+
             $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan berhasil dihapus.');
         } catch (\Exception $e) {
@@ -516,52 +527,53 @@ class AdminController extends Controller
         }
     }
 
-   public function update(Request $request, $id)
-{
-    $user = User::findOrFail($id);
-    
-    // Validasi data
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'pin' => 'required|string|max:10',
-        'location' => 'required|string|max:255',
-        'role' => 'required|in:admin,user',
-        'email' => 'nullable|email|unique:users,email,' . $id,
-        'password' => 'nullable|min:6',
-    ]);
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Validasi data
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'pin' => 'required|string|max:10',
+            'location' => 'required|string|max:255',
+            'role' => 'required|in:admin,user',
+            'email' => 'nullable|email|unique:users,email,' . $id,
+            'password' => 'nullable|min:6',
+        ]);
 
-    try {
-        // Cek agar admin tidak mengubah role dirinya sendiri secara tidak sengaja
-        if ($user->id === auth()->id() && $validated['role'] === 'user') {
+        try {
+            // Cek agar admin tidak mengubah role dirinya sendiri secara tidak sengaja
+            if ($user->id === auth()->id() && $validated['role'] === 'user') {
+                return redirect()->route('admin.index', ['tab' => 'data_user'])
+                    ->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
+            }
+
+            // Siapkan data untuk diupdate
+            $updateData = [
+                'name' => $validated['name'],
+                'pin' => $validated['pin'],
+                'location' => $validated['location'],
+                'role' => $validated['role'],
+                'email' => $validated['email'] ?? $user->email,
+            ];
+
+            // LOGIKA KRUSIAL: Hanya tambahkan password ke array update jika diisi
+            // Ini akan mencegah password lama tertimpa jika input dikosongkan
+            if ($request->filled('password')) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+
+            $user->update($updateData);
+
             return redirect()->route('admin.index', ['tab' => 'data_user'])
-                ->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
+                ->with('success', 'Data user berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            return redirect()->route('admin.index', ['tab' => 'data_user'])
+                ->withErrors(['error' => 'Gagal memperbarui data user: ' . $e->getMessage()]);
         }
-
-        // Siapkan data untuk diupdate
-        $updateData = [
-            'name' => $validated['name'],
-            'pin' => $validated['pin'],
-            'location' => $validated['location'],
-            'role' => $validated['role'],
-            'email' => $validated['email'] ?? $user->email,
-        ];
-
-        // LOGIKA KRUSIAL: Hanya tambahkan password ke array update jika diisi
-        // Ini akan mencegah password lama tertimpa jika input dikosongkan
-        if ($request->filled('password')) {
-            $updateData['password'] = Hash::make($request->password);
-        }
-
-        $user->update($updateData);
-
-        return redirect()->route('admin.index', ['tab' => 'data_user'])
-            ->with('success', 'Data user berhasil diperbarui.');
-
-    } catch (\Exception $e) {
-        return redirect()->route('admin.index', ['tab' => 'data_user'])
-            ->withErrors(['error' => 'Gagal memperbarui data user: ' . $e->getMessage()]);
     }
-}
+
     public function destroy($id)
     {
         try {

@@ -4,11 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>Admin Dashboard - SIMAK Admin</title>
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
 
@@ -1723,7 +1730,7 @@
                                                 </div>
                                                 <div>
                                                     <div
-                                                        class="text-slate-900 font-black text-base md:text-base italic leading-tight">
+                                                        class="text-slate-900 font-black text-base italic leading-tight uppercase tracking-tight">
                                                         {{ $l->user_name }}
                                                     </div>
                                                     <div
@@ -1738,40 +1745,40 @@
                                         <td class="p-4 md:p-6 block md:table-cell border-t md:border-none">
                                             <div class="flex flex-col">
                                                 <span
-                                                    class="text-[9px] text-slate-400 uppercase font-bold tracking-widest mb-1 md:hidden">Informasi
-                                                    Kategori:</span>
+                                                    class="text-[9px] text-slate-400 uppercase font-bold tracking-widest mb-1">{{ $labelLayanan }}:</span>
                                                 <span
-                                                    class="text-[9px] text-slate-400 uppercase font-bold tracking-widest mb-1 hidden md:block">{{ $labelLayanan }}:</span>
-                                                <span
-                                                    class="text-xs font-black text-slate-700 uppercase break-words leading-tight">{{ $isiLayanan }}</span>
+                                                    class="text-xs font-black text-slate-700 uppercase break-words leading-tight bg-slate-100 px-2 py-1 rounded-md inline-block w-fit">{{ $isiLayanan }}</span>
                                             </div>
                                         </td>
 
-                                        {{-- Bukti Foto --}}
+                                        {{-- Bukti Foto - PERBAIKAN: Menggunakan Grid agar tidak menumpuk --}}
                                         <td
                                             class="p-4 md:p-6 text-left md:text-center block md:table-cell border-t md:border-none">
                                             <span
                                                 class="text-[9px] text-slate-400 uppercase font-bold tracking-widest mb-2 block md:hidden">Bukti
                                                 Foto:</span>
-                                            <div class="flex md:justify-center -space-x-3">
+                                            <div
+                                                class="grid grid-cols-5 md:grid-cols-3 lg:grid-cols-5 gap-1.5 w-fit md:mx-auto">
                                                 @forelse($images as $img)
-                                                    <img src="{{ asset('storage/' . $img) }}"
-                                                        @click="imgModal = true; imgModalSrc = '{{ asset('storage/' . $img) }}'; imgModalKategori = '{{ strtoupper($l->type) }}'"
-                                                        class="w-12 h-12 md:w-14 md:h-14 object-cover rounded-xl cursor-zoom-in border-4 border-white shadow-md hover:z-20 hover:scale-110 transition-all">
+                                                    <div class="relative group">
+                                                        <img src="{{ asset('storage/' . $img) }}"
+                                                            @click="imgModal = true; imgModalSrc = '{{ asset('storage/' . $img) }}'; imgModalKategori = '{{ strtoupper($l->type) }}'"
+                                                            class="w-10 h-10 md:w-12 md:h-12 object-cover rounded-lg cursor-zoom-in border border-slate-200 shadow-sm hover:scale-110 transition-all hover:z-30">
+                                                    </div>
                                                 @empty
                                                     <div
-                                                        class="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-300">
-                                                        <i class="fas fa-image text-xs"></i>
+                                                        class="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-300">
+                                                        <i class="fas fa-image text-[10px]"></i>
                                                     </div>
                                                 @endforelse
                                             </div>
                                         </td>
 
-                                        {{-- Detail Kendala --}}
+                                        {{-- Detail Kendala - PERBAIKAN: Membatasi tinggi deskripsi --}}
                                         <td class="p-4 md:p-6 block md:table-cell border-t md:border-none">
-                                            <div class="flex flex-col max-w-full md:max-w-[300px]">
+                                            <div class="flex flex-col max-w-full md:max-w-[250px]">
                                                 <div
-                                                    class="text-[11px] text-slate-600 font-bold italic mb-3 leading-relaxed bg-slate-50 p-3 rounded-2xl border-l-4 border-slate-200 break-words whitespace-normal">
+                                                    class="text-[11px] text-slate-600 font-bold italic mb-3 leading-relaxed bg-slate-50 p-3 rounded-2xl border-l-4 border-slate-200 break-words max-h-[100px] overflow-y-auto custom-scrollbar">
                                                     "{{ $l->pesan }}"
                                                 </div>
                                                 <div
@@ -1789,22 +1796,22 @@
                                                 Admin:</span>
                                             @if($status !== 'ditolak')
                                                 <form action="{{ route('admin.laporan.respon') }}" method="POST"
-                                                    class="flex flex-col gap-2.5">
+                                                    class="flex flex-col gap-2">
                                                     @csrf
                                                     <input type="hidden" name="laporan_id" value="{{ $l->id }}">
                                                     <input type="hidden" name="type" value="{{ $l->type }}">
                                                     <textarea name="admin_note" rows="2"
-                                                        class="w-full bg-white border border-slate-200 rounded-2xl py-2.5 px-4 text-[11px] font-bold focus:border-emerald-500 focus:ring-0 resize-none transition-all shadow-sm"
+                                                        class="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-[11px] font-bold focus:border-emerald-500 focus:ring-0 resize-none transition-all shadow-sm"
                                                         required
                                                         placeholder="Tulis solusi...">{{ $l->tanggapan_admin }}</textarea>
                                                     <button type="submit"
-                                                        class="w-full {{ empty($l->tanggapan_admin) ? 'bg-orange-500' : 'bg-slate-800' }} text-white py-2.5 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm hover:opacity-90 active:scale-95">
+                                                        class="w-full {{ empty($l->tanggapan_admin) ? 'bg-orange-500' : 'bg-slate-800' }} text-white py-2 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm hover:opacity-90 active:scale-95">
                                                         {{ empty($l->tanggapan_admin) ? '🚀 Kirim Respon' : '🔄 Perbarui' }}
                                                     </button>
                                                 </form>
                                             @else
-                                                <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
-                                                    <p class="text-[11px] text-red-700 font-black italic">
+                                                <div class="bg-red-50 border border-red-100 rounded-xl p-3">
+                                                    <p class="text-[10px] text-red-700 font-black italic">
                                                         {{ $l->tanggapan_admin ?? 'Laporan ini ditolak oleh sistem.' }}
                                                     </p>
                                                 </div>
@@ -1814,14 +1821,14 @@
                                         {{-- Aksi --}}
                                         <td
                                             class="p-4 md:p-6 text-center block md:table-cell border-t md:border-none bg-slate-50/30 md:bg-transparent">
-                                            <div class="flex items-center justify-center gap-2">
+                                            <div class="flex md:flex-col lg:flex-row items-center justify-center gap-2">
                                                 @if($status === 'pending')
                                                     <form action="{{ route('admin.laporan.tolak', $l->id) }}" method="POST"
                                                         onsubmit="return confirm('Tolak laporan ini?')">
                                                         @csrf
                                                         <input type="hidden" name="type" value="{{ $l->type }}">
                                                         <button type="submit"
-                                                            class="text-[9px] font-black text-red-500 border-2 border-red-500 px-3 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-all uppercase">Tolak</button>
+                                                            class="text-[9px] font-black text-red-500 border-2 border-red-500 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition-all uppercase w-full">Tolak</button>
                                                     </form>
                                                 @endif
                                                 <form action="{{ route('admin.laporan.hapus', $l->id) }}" method="POST"
@@ -1829,7 +1836,7 @@
                                                     @csrf @method('DELETE')
                                                     <input type="hidden" name="type" value="{{ $l->type }}">
                                                     <button type="submit"
-                                                        class="text-[9px] font-black text-red-500 border-2 border-red-500 px-3 py-2 rounded-xl hover:bg-red-600 hover:text-white transition-all uppercase">Hapus</button>
+                                                        class="text-[9px] font-black text-red-500 border-2 border-red-500 px-3 py-1.5 rounded-lg hover:bg-red-600 hover:text-white transition-all uppercase w-full">Hapus</button>
                                                 </form>
                                             </div>
                                         </td>
@@ -1982,7 +1989,8 @@
                     </div>
                     <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 w-full md:w-auto">
                         <span class="text-[10px] md:text-[11px] font-bold text-slate-500">
-                            Showing <span x-text="filteredData.length > 0 ? ((currentPage-1)*perPage)+1 : 0"></span> to
+                            Showing <span x-text="filteredData.length > 0 ? ((currentPage-1)*perPage)+1 : 0"></span>
+                            to
                             <span x-text="Math.min(currentPage*perPage, filteredData.length)"></span> of
                             <span x-text="filteredData.length"></span> results
                         </span>
@@ -2200,5 +2208,22 @@
                     }
                 }
             </style>
+            <script type="module">
+                document.addEventListener('DOMContentLoaded', function () {
+                    if (window.Echo) {
+                        // Pastikan nama channel: 'admin-dashboard'
+                        // Pastikan nama event: 'LaporanUpdated' (Harus sama persis dengan broadcastAs di PHP)
+                        window.Echo.channel('admin-dashboard')
+                            .listen('.LaporanUpdated', (e) => { // Tambahkan titik (.) di depan jika tanpa broadcastAs, 
+                                // atau tanpa titik jika pakai broadcastAs
+                                console.log('Sinyal diterima:', e.message);
+                                window.location.reload();
+                            });
+                    }
+                });
+            </script>
+    </div>
+    </div>
+</body>
 
 </html>

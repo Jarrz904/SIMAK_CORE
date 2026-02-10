@@ -295,12 +295,12 @@ class UserController extends Controller
             'kategori' => 'required|string',
             'deskripsi' => 'required|string',
             'foto_trouble' => 'required|array|min:1|max:10',
-            'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:2048', // Dioptimasi ke 2MB
+            'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:5120', // Dioptimasi ke 5MB
         ], [
             'foto_trouble.required' => 'Wajib melampirkan minimal satu foto bukti gangguan.',
             'foto_trouble.max' => 'Maksimal lampiran yang diperbolehkan adalah 10 file.',
             'foto_trouble.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
-            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 2MB.'
+            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 5MB.'
         ]);
 
         try {
@@ -339,8 +339,11 @@ class UserController extends Controller
         $request->validate([
             'kategori_siak' => 'required|string',
             'deskripsi_siak' => 'required|string',
-            'foto_dokumen_siak' => 'required|array|min:1|max:5',
-            'foto_dokumen_siak.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'foto_dokumen_siak' => 'required|array|min:1|max:10', // Diubah ke max 10
+            'foto_dokumen_siak.*' => 'image|mimes:jpeg,png,jpg|max:5120', // Diubah ke 5MB
+        ], [
+            'foto_dokumen_siak.max' => 'Maksimal lampiran yang diperbolehkan adalah 10 file.',
+            'foto_dokumen_siak.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 5MB.'
         ]);
 
         try {
@@ -385,12 +388,12 @@ class UserController extends Controller
             'nik_aktivasi' => 'required|numeric|digits:16',
             'jenis_layanan' => 'required|in:RESTORE,AKTIVASI,restore,aktivasi',
             'alasan' => 'nullable|string',
-            'lampiran' => ($isRestore ? 'required' : 'nullable') . '|array|max:5',
-            'lampiran.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'lampiran' => ($isRestore ? 'required' : 'nullable') . '|array|max:10', // Tetap max 10
+            'lampiran.*' => 'image|mimes:jpeg,png,jpg|max:5120' // Diubah ke 5MB
         ], [
             'lampiran.required' => 'Untuk layanan Restore Data, Anda wajib mengunggah minimal satu lampiran gambar.',
             'lampiran.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
-            'lampiran.*.max' => 'Ukuran file gambar tidak boleh lebih dari 2MB.',
+            'lampiran.*.max' => 'Ukuran file gambar tidak boleh lebih dari 5MB.',
         ]);
 
         try {
@@ -431,13 +434,13 @@ class UserController extends Controller
         $request->validate([
             'deskripsi' => 'nullable|string',
             'foto_proxy' => 'required|array|min:1|max:10',
-            'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:5120' // Diubah ke 5MB
         ], [
             'foto_proxy.required' => 'Wajib mengunggah minimal satu foto.',
             'foto_proxy.array' => 'Format unggahan foto tidak valid.',
             'foto_proxy.max' => 'Maksimal lampiran adalah 10 file foto.',
             'foto_proxy.*.image' => 'File harus berupa gambar.',
-            'foto_proxy.*.max' => 'Ukuran satu foto maksimal 2MB.'
+            'foto_proxy.*.max' => 'Ukuran satu foto maksimal 5MB.'
         ]);
 
         try {
@@ -536,7 +539,10 @@ class UserController extends Controller
             'kategori_update' => 'required|string',
             'alasan_update' => 'required|string',
             'lampiran_update' => 'required|array|min:1|max:10',
-            'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:5120' // Diubah ke 5MB
+        ], [
+            'lampiran_update.max' => 'Maksimal lampiran adalah 10 file.',
+            'lampiran_update.*.max' => 'Ukuran file foto tidak boleh lebih dari 5MB.'
         ]);
 
         try {
