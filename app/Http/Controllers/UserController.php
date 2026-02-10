@@ -295,34 +295,40 @@ class UserController extends Controller
             'kategori' => 'required|string',
             'deskripsi' => 'required|string',
             'foto_trouble' => 'required|array|min:1|max:10',
-            'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'foto_trouble.*' => 'image|mimes:jpeg,png,jpg|max:2048', // Dioptimasi ke 2MB
         ], [
             'foto_trouble.required' => 'Wajib melampirkan minimal satu foto bukti gangguan.',
             'foto_trouble.max' => 'Maksimal lampiran yang diperbolehkan adalah 10 file.',
             'foto_trouble.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
-            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 5MB.'
+            'foto_trouble.*.max' => 'Ukuran satu file foto tidak boleh lebih dari 2MB.'
         ]);
 
-        $filePaths = [];
-        if ($request->hasFile('foto_trouble')) {
-            foreach ($request->file('foto_trouble') as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('troubles', 'public');
-                    $filePaths[] = $path;
+        try {
+            return DB::transaction(function () use ($request) {
+                $filePaths = [];
+                if ($request->hasFile('foto_trouble')) {
+                    foreach ($request->file('foto_trouble') as $file) {
+                        if ($file->isValid()) {
+                            $path = $file->store('troubles', 'public');
+                            $filePaths[] = $path;
+                        }
+                    }
                 }
-            }
+
+                Trouble::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'kategori' => strtoupper(trim($request->kategori)),
+                    'deskripsi' => $request->deskripsi,
+                    'foto_trouble' => json_encode($filePaths),
+                    'status' => 'Pending'
+                ]);
+
+                return back()->with('status', 'Laporan gangguan (PC/Trouble) berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim laporan. Silakan coba beberapa saat lagi.']);
         }
-
-        Trouble::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'kategori' => strtoupper(trim($request->kategori)),
-            'deskripsi' => $request->deskripsi,
-            'foto_trouble' => json_encode($filePaths),
-            'status' => 'Pending'
-        ]);
-
-        return back()->with('status', 'Laporan gangguan (PC/Trouble) berhasil dikirim!');
     }
 
     /**
@@ -334,31 +340,37 @@ class UserController extends Controller
             'kategori_siak' => 'required|string',
             'deskripsi_siak' => 'required|string',
             'foto_dokumen_siak' => 'required|array|min:1|max:5',
-            'foto_dokumen_siak.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'foto_dokumen_siak.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $filePaths = [];
-        if ($request->hasFile('foto_dokumen_siak')) {
-            foreach ($request->file('foto_dokumen_siak') as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('pengajuan', 'public');
-                    $filePaths[] = $path;
+        try {
+            return DB::transaction(function () use ($request) {
+                $filePaths = [];
+                if ($request->hasFile('foto_dokumen_siak')) {
+                    foreach ($request->file('foto_dokumen_siak') as $file) {
+                        if ($file->isValid()) {
+                            $path = $file->store('pengajuan', 'public');
+                            $filePaths[] = $path;
+                        }
+                    }
                 }
-            }
+
+                Pengajuan::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'nik_aktivasi' => Auth::user()->nik,
+                    'jenis_registrasi' => 'SIAK',
+                    'kategori' => strtoupper(trim($request->kategori_siak)),
+                    'deskripsi' => $request->deskripsi_siak,
+                    'foto_dokumen' => json_encode($filePaths),
+                    'status' => 'Pending'
+                ]);
+
+                return back()->with('status', 'Laporan kendala SIAK berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim laporan SIAK.']);
         }
-
-        Pengajuan::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'nik_aktivasi' => Auth::user()->nik,
-            'jenis_registrasi' => 'SIAK',
-            'kategori' => strtoupper(trim($request->kategori_siak)),
-            'deskripsi' => $request->deskripsi_siak,
-            'foto_dokumen' => json_encode($filePaths),
-            'status' => 'Pending'
-        ]);
-
-        return back()->with('status', 'Laporan kendala SIAK berhasil dikirim!');
     }
 
     /**
@@ -374,35 +386,41 @@ class UserController extends Controller
             'jenis_layanan' => 'required|in:RESTORE,AKTIVASI,restore,aktivasi',
             'alasan' => 'nullable|string',
             'lampiran' => ($isRestore ? 'required' : 'nullable') . '|array|max:5',
-            'lampiran.*' => 'image|mimes:jpeg,png,jpg|max:5120'
+            'lampiran.*' => 'image|mimes:jpeg,png,jpg|max:2048'
         ], [
             'lampiran.required' => 'Untuk layanan Restore Data, Anda wajib mengunggah minimal satu lampiran gambar.',
             'lampiran.*.image' => 'File harus berupa gambar (JPEG, PNG, JPG).',
-            'lampiran.*.max' => 'Ukuran file gambar tidak boleh lebih dari 5MB.',
+            'lampiran.*.max' => 'Ukuran file gambar tidak boleh lebih dari 2MB.',
         ]);
 
-        $filePaths = [];
-        if ($request->hasFile('lampiran')) {
-            foreach ($request->file('lampiran') as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('aktivasi', 'public');
-                    $filePaths[] = $path;
+        try {
+            return DB::transaction(function () use ($request) {
+                $filePaths = [];
+                if ($request->hasFile('lampiran')) {
+                    foreach ($request->file('lampiran') as $file) {
+                        if ($file->isValid()) {
+                            $path = $file->store('aktivasi', 'public');
+                            $filePaths[] = $path;
+                        }
+                    }
                 }
-            }
+
+                Aktivasi::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => $request->nama_lengkap,
+                    'nik_aktivasi' => $request->nik_aktivasi,
+                    'jenis_layanan' => strtoupper(trim($request->jenis_layanan)),
+                    'alasan' => $request->alasan,
+                    'foto_ktp' => !empty($filePaths) ? json_encode($filePaths) : null,
+                    'status' => 'Pending'
+                ]);
+
+                $pesan = strtoupper(trim($request->jenis_layanan)) === 'RESTORE' ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK';
+                return back()->with('status', $pesan . ' berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim permintaan aktivasi.']);
         }
-
-        Aktivasi::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => $request->nama_lengkap,
-            'nik_aktivasi' => $request->nik_aktivasi,
-            'jenis_layanan' => strtoupper(trim($request->jenis_layanan)),
-            'alasan' => $request->alasan,
-            'foto_ktp' => !empty($filePaths) ? json_encode($filePaths) : null,
-            'status' => 'Pending'
-        ]);
-
-        $pesan = $isRestore ? 'Permintaan Restore Data' : 'Permintaan Aktivasi NIK';
-        return back()->with('status', $pesan . ' berhasil dikirim!');
     }
 
     /**
@@ -413,34 +431,40 @@ class UserController extends Controller
         $request->validate([
             'deskripsi' => 'nullable|string',
             'foto_proxy' => 'required|array|min:1|max:10',
-            'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:5120'
+            'foto_proxy.*' => 'image|mimes:jpeg,png,jpg|max:2048'
         ], [
             'foto_proxy.required' => 'Wajib mengunggah minimal satu foto.',
             'foto_proxy.array' => 'Format unggahan foto tidak valid.',
             'foto_proxy.max' => 'Maksimal lampiran adalah 10 file foto.',
             'foto_proxy.*.image' => 'File harus berupa gambar.',
-            'foto_proxy.*.max' => 'Ukuran satu foto maksimal 5MB.'
+            'foto_proxy.*.max' => 'Ukuran satu foto maksimal 2MB.'
         ]);
 
-        $filePaths = [];
-        if ($request->hasFile('foto_proxy')) {
-            foreach ($request->file('foto_proxy') as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('proxy', 'public');
-                    $filePaths[] = $path;
+        try {
+            return DB::transaction(function () use ($request) {
+                $filePaths = [];
+                if ($request->hasFile('foto_proxy')) {
+                    foreach ($request->file('foto_proxy') as $file) {
+                        if ($file->isValid()) {
+                            $path = $file->store('proxy', 'public');
+                            $filePaths[] = $path;
+                        }
+                    }
                 }
-            }
+
+                Proxy::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'deskripsi' => $request->deskripsi,
+                    'foto_proxy' => json_encode($filePaths),
+                    'status' => 'Pending'
+                ]);
+
+                return back()->with('status', 'Laporan kendala Proxy berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim laporan Proxy.']);
         }
-
-        Proxy::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'deskripsi' => $request->deskripsi,
-            'foto_proxy' => json_encode($filePaths),
-            'status' => 'Pending'
-        ]);
-
-        return back()->with('status', 'Laporan kendala Proxy berhasil dikirim!');
     }
 
     /**
@@ -454,16 +478,22 @@ class UserController extends Controller
             'jenis_dokumen' => 'required|string',
         ]);
 
-        Pembubuhan::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'nik' => $request->nik,
-            'nik_pemohon' => $request->nik_pemohon,
-            'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen)),
-            'status' => 'Pending'
-        ]);
+        try {
+            return DB::transaction(function () use ($request) {
+                Pembubuhan::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'nik' => $request->nik,
+                    'nik_pemohon' => $request->nik_pemohon,
+                    'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen)),
+                    'status' => 'Pending'
+                ]);
 
-        return back()->with('status', 'Pembubuhan berhasil dikirim!');
+                return back()->with('status', 'Pembubuhan berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal memproses pembubuhan.']);
+        }
     }
 
     /**
@@ -477,17 +507,23 @@ class UserController extends Controller
             'jenis_dokumen_luar' => 'required|string',
         ]);
 
-        LuarDaerah::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'nik' => $request->nik,
-            'nik_luar_daerah' => $request->nik_luar_daerah,
-            'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen_luar)),
-            'status' => 'pending',
-            'is_rejected' => false
-        ]);
+        try {
+            return DB::transaction(function () use ($request) {
+                LuarDaerah::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'nik' => $request->nik,
+                    'nik_luar_daerah' => $request->nik_luar_daerah,
+                    'jenis_dokumen' => strtoupper(trim($request->jenis_dokumen_luar)),
+                    'status' => 'pending',
+                    'is_rejected' => false
+                ]);
 
-        return back()->with('status', 'Laporan Luar Daerah berhasil dikirim!');
+                return back()->with('status', 'Laporan Luar Daerah berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim laporan luar daerah.']);
+        }
     }
 
     /**
@@ -500,30 +536,36 @@ class UserController extends Controller
             'kategori_update' => 'required|string',
             'alasan_update' => 'required|string',
             'lampiran_update' => 'required|array|min:1|max:10',
-            'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:5120'
+            'lampiran_update.*' => 'image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        $filePaths = [];
-        if ($request->hasFile('lampiran_update')) {
-            foreach ($request->file('lampiran_update') as $file) {
-                if ($file->isValid()) {
-                    $path = $file->store('update_data', 'public');
-                    $filePaths[] = $path;
+        try {
+            return DB::transaction(function () use ($request) {
+                $filePaths = [];
+                if ($request->hasFile('lampiran_update')) {
+                    foreach ($request->file('lampiran_update') as $file) {
+                        if ($file->isValid()) {
+                            $path = $file->store('update_data', 'public');
+                            $filePaths[] = $path;
+                        }
+                    }
                 }
-            }
+
+                UpdateData::create([
+                    'user_id' => Auth::id(),
+                    'nama_lengkap' => Auth::user()->name,
+                    'nik_pemohon' => $request->nik_pemohon,
+                    'jenis_layanan' => strtoupper(trim($request->kategori_update)),
+                    'deskripsi' => $request->alasan_update,
+                    'lampiran' => json_encode($filePaths),
+                    'status' => 'pending',
+                ]);
+
+                return back()->with('status', 'Permohonan update data kependudukan berhasil dikirim!');
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['msg' => 'Gagal mengirim permohonan update data.']);
         }
-
-        UpdateData::create([
-            'user_id' => Auth::id(),
-            'nama_lengkap' => Auth::user()->name,
-            'nik_pemohon' => $request->nik_pemohon,
-            'jenis_layanan' => strtoupper(trim($request->kategori_update)),
-            'deskripsi' => $request->alasan_update,
-            'lampiran' => json_encode($filePaths),
-            'status' => 'pending',
-        ]);
-
-        return back()->with('status', 'Permohonan update data kependudukan berhasil dikirim!');
     }
 
     public function profile()

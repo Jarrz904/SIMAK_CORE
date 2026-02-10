@@ -360,6 +360,16 @@ class AdminController extends Controller
             $model = $this->getModelByType($request->type, $request->laporan_id);
             $tableName = $model->getTable();
 
+            // LOGIC FIX: Cegah double response jika status sudah selesai atau ditolak
+            if (Schema::hasColumn($tableName, 'status')) {
+                if ($model->status === 'selesai' || $model->status === 'ditolak') {
+                    return redirect()->back()->withErrors(['error' => 'Laporan ini sudah diproses sebelumnya dan tidak dapat diubah.']);
+                }
+            } elseif (!empty($model->tanggapan_admin)) {
+                // Fallback jika kolom status tidak ada tapi tanggapan sudah terisi
+                return redirect()->back()->withErrors(['error' => 'Laporan ini sudah memiliki tanggapan admin.']);
+            }
+
             $model->tanggapan_admin = $request->admin_note;
 
             // Memastikan kolom updated_at manual atau otomatis menggunakan waktu Jakarta
@@ -404,6 +414,13 @@ class AdminController extends Controller
             DB::beginTransaction();
             $model = $this->getModelByType($request->type, $id);
             $tableName = $model->getTable();
+
+            // LOGIC FIX: Cegah double response jika status sudah selesai atau ditolak
+            if (Schema::hasColumn($tableName, 'status')) {
+                if ($model->status === 'selesai' || $model->status === 'ditolak') {
+                    return redirect()->back()->withErrors(['error' => 'Laporan ini sudah diproses dan tidak dapat ditolak lagi.']);
+                }
+            }
 
             $model->tanggapan_admin = $request->admin_note ?? 'Laporan ditolak karena data tidak sesuai kriteria.';
 
@@ -474,7 +491,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'pin' => 'required|string|max:10',
-            'nik'      => 'required|string|size:16|unique:users,nik',
+            'nik' => 'required|string|size:16|unique:users,nik',
             'location' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
             'password' => 'required|min:6',
@@ -485,7 +502,7 @@ class AdminController extends Controller
             User::create([
                 'name' => $validated['name'],
                 'pin' => $validated['pin'],
-                'nik'       => $validated['nik'],
+                'nik' => $validated['nik'],
                 'location' => $validated['location'],
                 'role' => $validated['role'],
                 'email' => $validated['email'] ?? ($validated['name'] . rand(10, 99) . '@sistem.com'),
@@ -499,43 +516,52 @@ class AdminController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
-    {
-        $user = User::findOrFail($id);
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'pin' => 'required|string|max:10',
-            'location' => 'required|string|max:255',
-            'role' => 'required|in:admin,user',
-            'email' => 'nullable|email|unique:users,email,' . $id,
-            'password' => 'nullable|min:6',
-        ]);
+   public function update(Request $request, $id)
+{
+    $user = User::findOrFail($id);
+    
+    // Validasi data
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'pin' => 'required|string|max:10',
+        'location' => 'required|string|max:255',
+        'role' => 'required|in:admin,user',
+        'email' => 'nullable|email|unique:users,email,' . $id,
+        'password' => 'nullable|min:6',
+    ]);
 
-        try {
-            if ($user->id === auth()->id() && $validated['role'] === 'user') {
-                return redirect()->route('admin.index', ['tab' => 'data_user'])->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
-            }
-
-            $updateData = [
-                'name' => $validated['name'],
-                'pin' => $validated['pin'],
-                'location' => $validated['location'],
-                'role' => $validated['role'],
-                'email' => $validated['email'] ?? $user->email,
-            ];
-
-            if (!empty($validated['password'])) {
-                $updateData['password'] = Hash::make($validated['password']);
-            }
-
-            $user->update($updateData);
-
-            return redirect()->route('admin.index', ['tab' => 'data_user'])->with('success', 'Data user berhasil diperbarui.');
-        } catch (\Exception $e) {
-            return redirect()->route('admin.index', ['tab' => 'data_user'])->withErrors(['error' => 'Gagal memperbarui data user.']);
+    try {
+        // Cek agar admin tidak mengubah role dirinya sendiri secara tidak sengaja
+        if ($user->id === auth()->id() && $validated['role'] === 'user') {
+            return redirect()->route('admin.index', ['tab' => 'data_user'])
+                ->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
         }
-    }
 
+        // Siapkan data untuk diupdate
+        $updateData = [
+            'name' => $validated['name'],
+            'pin' => $validated['pin'],
+            'location' => $validated['location'],
+            'role' => $validated['role'],
+            'email' => $validated['email'] ?? $user->email,
+        ];
+
+        // LOGIKA KRUSIAL: Hanya tambahkan password ke array update jika diisi
+        // Ini akan mencegah password lama tertimpa jika input dikosongkan
+        if ($request->filled('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        $user->update($updateData);
+
+        return redirect()->route('admin.index', ['tab' => 'data_user'])
+            ->with('success', 'Data user berhasil diperbarui.');
+
+    } catch (\Exception $e) {
+        return redirect()->route('admin.index', ['tab' => 'data_user'])
+            ->withErrors(['error' => 'Gagal memperbarui data user: ' . $e->getMessage()]);
+    }
+}
     public function destroy($id)
     {
         try {

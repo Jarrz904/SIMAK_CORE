@@ -920,9 +920,9 @@
                             <div>
                                 <label class="text-[9px] font-black text-slate-400 uppercase block mb-0.5 ml-1">Password
                                     Baru (Opsional)</label>
-                                <input type="password" name="password"
+                                <input type="password" name="password" autocomplete="new-password"
                                     class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-sm font-bold text-slate-700 outline-none focus:border-orange-500 transition-all"
-                                    placeholder="Minimal 6 karakter">
+                                    placeholder="Biarkan kosong jika tidak diubah">
                             </div>
 
                             {{-- Action Buttons --}}
