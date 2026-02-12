@@ -4,40 +4,42 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast; // PERBAIKAN: Tambahkan \Contracts\
+// Gunakan ShouldBroadcastNow agar data terkirim INSTAN tanpa menunggu antrean (queue)
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow; 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class LaporanUpdated implements ShouldBroadcast
+class LaporanUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $message;
+    public $data;
 
-    /**
-     * Create a new event instance.
-     */
-    public function __construct($message = "refresh")
+    public function __construct($data = [])
     {
-        $this->message = $message;
+        // Default array kosong jika tidak ada data spesifik
+        $this->data = $data;
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
-     */
     public function broadcastOn(): array
     {
-        // Pastikan nama channel ini sama dengan yang ada di JavaScript/Livewire nanti
+        // Disamakan dengan script Frontend
         return [
-            new Channel('admin-dashboard'),
+            new Channel('laporan-channel'),
         ];
     }
 
-    /**
-     * Nama event yang akan diterima oleh Laravel Echo
-     * Jika tidak ditentukan, biasanya menggunakan nama Class-nya
-     */
-    public function broadcastAs() { return 'LaporanUpdated'; }
+    public function broadcastAs()
+    {
+        // Disamakan dengan script Frontend (menggunakan dot notation biasanya lebih standar)
+        return 'laporan.updated';
+    }
+
+    public function broadcastWith()
+    {
+        return [
+            'payload' => $this->data,
+            'timestamp' => now()->toDateTimeString()
+        ];
+    }
 }

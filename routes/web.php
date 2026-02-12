@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\AnnouncementController; 
+use App\Http\Controllers\AnnouncementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,15 +49,15 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     // AREA ADMIN (Hanya Role Admin)
     // ==========================================
     Route::middleware('role:admin')->group(function () {
-        
+
         /**
          * PERBAIKAN UTAMA: 
          * Menggunakan 'admin.index' sebagai nama utama. 
          */
         Route::get('/admin/dashboard', [AdminController::class, 'index'])->name('admin.index');
-        
+
         // Alias untuk menghindari error di AuthController jika masih pakai nama lama
-        Route::get('/admin/panel', function() {
+        Route::get('/admin/panel', function () {
             return redirect()->route('admin.index');
         })->name('admin.dashboard');
 
@@ -69,28 +69,32 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
             Route::post("/{id}/toggle-status", [AdminController::class, 'toggleStatus'])->name('admin.users.toggle');
         });
 
-        // --- ROUTE MANAJEMEN LAPORAN ---
         Route::prefix('admin/laporan')->group(function () {
-            Route::post('/kirim-respon', [AdminController::class, 'kirimRespon'])->name('admin.laporan.respon');
+            // --- ROUTE REAL-TIME FETCH ---
+            // SINKRONISASI: Route ini sekarang dipastikan hanya mengembalikan JSON di Controller
+            Route::get('/fetch-json', [AdminController::class, 'fetchJson'])->name('admin.laporan.fetch-json');
+            
+            // Tambahan Route Alias untuk menangani Error: Route [admin.get-laporan-json] not defined
+            Route::get('/get-data', [AdminController::class, 'fetchJson'])->name('admin.get-laporan-json');
+
+            // CUKUP TULIS NAMA AKHIRNYA SAJA
+            Route::post('/respon', [AdminController::class, 'kirimRespon'])->name('admin.laporan.respon');
             Route::post('/tolak/{id}', [AdminController::class, 'tolakLaporan'])->name('admin.laporan.tolak');
             Route::delete('/hapus/{id}', [AdminController::class, 'hapusLaporan'])->name('admin.laporan.hapus');
             
             // Menambahkan rute pengelolaan Luar Daerah untuk Admin
             Route::post('/luar-daerah/respon', [AdminController::class, 'responLuarDaerah'])->name('admin.luardaerah.respon');
-            
+
             // --- ROUTE EXPORT ---
             Route::get('/export', [AdminController::class, 'exportExcel'])->name('admin.laporan.export');
-            
-            /** * PERBAIKAN DI SINI:
-             * Menambahkan rute spesifik untuk 3 kategori export laporan
-             */
-            
+            Route::get('/export-excel', [AdminController::class, 'exportExcel'])->name('export.excel');
+
             // 1. Export Laporan Aktivasi (NIK & Luar Daerah)
             Route::match(['get', 'post'], '/export-aktivasi', [AdminController::class, 'exportAktivasi'])->name('export.laporan.aktivasi');
-            
+
             // 2. Export Laporan Sistem (SIAK, Trouble, Proxy, TTE)
             Route::match(['get', 'post'], '/export-sistem', [AdminController::class, 'exportSistem'])->name('export.laporan.sistem');
-            
+
             // 3. Export Laporan Update Data (Biodata)
             Route::match(['get', 'post'], '/export-updatedata', [AdminController::class, 'exportUpdateData'])->name('export.laporan.updatedata');
         });
@@ -108,19 +112,19 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     Route::middleware('role:user')->group(function () {
         // Halaman utama user
         Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
-        
+
         /**
          * PERBAIKAN UNTUK DASHBOARD TUNGGAL:
          * 1. Route GET profile diarahkan kembali ke dashboard agar tidak error 404.
          * 2. Route update mendukung PUT dan POST (mengatasi MethodNotAllowed).
          */
-        @Route::get('/user/profile', function() {
+        Route::get('/user/profile', function () {
             return redirect()->route('user.dashboard');
         })->name('user.profile');
-        
+
         // Match digunakan agar jika form di dashboard pakai @method('PUT') atau POST tetap jalan
         Route::match(['put', 'post'], '/user/profile/update', [UserController::class, 'updateProfil'])->name('user.profile.update');
-        
+
         Route::post('/user/notifikasi/{id}/read', [UserController::class, 'markAsRead'])->name('user.notif.read');
 
         // --- FITUR PEMBUBUHAN TTE ---
@@ -137,9 +141,9 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     // FITUR LAYANAN & BANTUAN (UMUM / MULTIROLE)
     // ==========================================
     Route::post('/pengajuan/store', [UserController::class, 'storePengajuan'])->name('pengajuan.store');
-    @Route::post('/aktivasi-nik', [UserController::class, 'storeAktivasi'])->name('aktivasi.store');
+    // Rute aktivasi, proxy, dan trouble tetap bisa diakses admin/user selama login
+    Route::post('/aktivasi-nik', [UserController::class, 'storeAktivasi'])->name('aktivasi.store');
     Route::post('/proxy-report', [UserController::class, 'storeProxy'])->name('proxy.store');
     Route::post('/trouble-report', [UserController::class, 'storeTrouble'])->name('trouble.store');
-// Tambahkan/pastikan baris ini ada di dalam Route::middleware('role:admin')
-Route::get('/admin/laporan/export-excel', [AdminController::class, 'exportExcel'])->name('export.excel');
+
 });

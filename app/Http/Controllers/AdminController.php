@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
-use App\Events\LaporanUpdated; // Tambahkan Import Event
+use App\Events\LaporanUpdated; // Import Event
 
 class AdminController extends Controller
 {
@@ -172,43 +172,7 @@ class AdminController extends Controller
 
         // --- SINKRONISASI UNTUK ALPINE.JS (VERSI MULTI-FOTO) ---
         $updateDatasJs = $updateDatas->map(function ($item) use ($timezone) {
-            $status = $item->status ?? ($item->is_rejected ? 'ditolak' : (!empty($item->tanggapan_admin) ? 'selesai' : 'pending'));
-            $createdAt = Carbon::parse($item->created_at)->timezone($timezone);
-
-            // LOGIC FIX: Memastikan lampiran menjadi Array URL
-            $lampiranRaw = $item->lampiran;
-            $allLampirans = [];
-
-            if (!empty($lampiranRaw)) {
-                $decoded = json_decode($lampiranRaw, true);
-                if (is_array($decoded)) {
-                    foreach ($decoded as $path) {
-                        $cleanPath = str_replace('\\', '', $path);
-                        $allLampirans[] = asset('storage/' . $cleanPath);
-                    }
-                } else {
-                    $cleanPath = str_replace('\\', '', $lampiranRaw);
-                    $allLampirans[] = asset('storage/' . $cleanPath);
-                }
-            }
-
-            return [
-                'id' => $item->id,
-                'name' => $item->user->name ?? 'User Tak Dikenal',
-                'location' => $item->user->location ?? 'LUAR WILAYAH',
-                'month' => $createdAt->format('m'),
-                'status' => $status,
-                'kat_row' => 'updatedata',
-                'jenis_layanan' => strtoupper($item->jenis_layanan ?? 'BIODATA'),
-                'lampiran' => count($allLampirans) > 0 ? $allLampirans : null,
-                'nik_pemohon' => $item->nik_pemohon ?? '-',
-                'deskripsi' => $item->deskripsi ?? $item->alasan ?? '-',
-                'tanggapan_admin' => $item->tanggapan_admin,
-                'created_at' => $createdAt->format('d/m/Y H:i'),
-                'csrf' => csrf_token(),
-                'url_respon' => route('admin.laporan.respon'),
-                'url_hapus' => route('admin.laporan.hapus', ['id' => $item->id, 'type' => 'updatedata']),
-            ];
+            return $this->formatJsItem($item, 'updatedata', $timezone);
         });
 
         $currentTab = $request->query('tab', 'dashboard');
@@ -250,9 +214,87 @@ class AdminController extends Controller
             'troubleCategories',
             'currentTab'
         ))->with([
-                    'laporans' => $sortedLaporans,
-                    'update_datas' => $updateDatas
-                ]);
+            'laporans' => $sortedLaporans,
+            'update_datas' => $updateDatas
+        ]);
+    }
+
+    /**
+     * PERBAIKAN: Fungsi sinkronisasi JSON untuk AlpineJS/Polling
+     */
+    public function fetchJson(Request $request)
+    {
+        date_default_timezone_set('Asia/Jakarta');
+        $timezone = 'Asia/Jakarta';
+        $type = $request->query('type', 'all');
+
+        if ($type === 'updatedata') {
+            $data = UpdateData::with('user')
+                ->orderByRaw("CASE WHEN tanggapan_admin IS NULL OR tanggapan_admin = '' THEN 0 ELSE 1 END ASC")
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->map(function ($item) use ($timezone) {
+                    return $this->formatJsItem($item, 'updatedata', $timezone);
+                });
+            return response()->json($data);
+        }
+
+        // Default: Ambil Laporan Sistem (Combined)
+        $combined = collect();
+        $this->mapLaporan($combined, Trouble::with('user')->get(), 'trouble', 'PC - ', $timezone);
+        $this->mapLaporan($combined, Aktivasi::with('user')->get(), 'aktivasi', 'NIK - ', $timezone);
+        $this->mapLaporan($combined, LuarDaerah::with('user')->get(), 'luardaerah', 'LUAR DAERAH - ', $timezone);
+        $this->mapLaporan($combined, Pengajuan::with('user')->get(), 'pengajuan', 'SIAK - ', $timezone);
+        $this->mapLaporan($combined, Proxy::with('user')->get(), 'proxy', 'PROXY - ', $timezone);
+        $this->mapLaporan($combined, Pembubuhan::with('user')->get(), 'pembubuhan', 'TTE - ', $timezone);
+
+        $sorted = $combined->sort(function ($a, $b) {
+            $priorityA = ($a->status === 'pending') ? 0 : 1;
+            $priorityB = ($b->status === 'pending') ? 0 : 1;
+            return ($priorityA === $priorityB) ? $b->created_at->timestamp <=> $a->created_at->timestamp : $priorityA <=> $priorityB;
+        })->values();
+
+        return response()->json($sorted);
+    }
+
+    /**
+     * Helper untuk format item JavaScript agar seragam
+     */
+    private function formatJsItem($item, $kat, $timezone)
+    {
+        $status = $item->status ?? ($item->is_rejected ? 'ditolak' : (!empty($item->tanggapan_admin) ? 'selesai' : 'pending'));
+        $createdAt = Carbon::parse($item->created_at)->timezone($timezone);
+
+        $lampiranRaw = $item->lampiran;
+        $allLampirans = [];
+        if (!empty($lampiranRaw)) {
+            $decoded = json_decode($lampiranRaw, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $path) {
+                    $allLampirans[] = asset('storage/' . str_replace('\\', '', $path));
+                }
+            } else {
+                $allLampirans[] = asset('storage/' . str_replace('\\', '', $lampiranRaw));
+            }
+        }
+
+        return [
+            'id' => $item->id,
+            'name' => $item->user->name ?? 'User Tak Dikenal',
+            'location' => $item->user->location ?? 'LUAR WILAYAH',
+            'month' => $createdAt->format('m'),
+            'status' => $status,
+            'kat_row' => $kat,
+            'jenis_layanan' => strtoupper($item->jenis_layanan ?? $item->kategori ?? 'UMUM'),
+            'lampiran' => count($allLampirans) > 0 ? $allLampirans : null,
+            'nik_pemohon' => $item->nik_pemohon ?? $item->nik_aktivasi ?? '-',
+            'deskripsi' => $item->deskripsi ?? $item->alasan ?? '-',
+            'tanggapan_admin' => $item->tanggapan_admin,
+            'created_at' => $createdAt->format('d/m/Y H:i'),
+            'csrf' => csrf_token(),
+            'url_respon' => route('admin.laporan.respon'),
+            'url_hapus' => route('admin.laporan.hapus', ['id' => $item->id, 'type' => $kat]),
+        ];
     }
 
     private function mapLaporan(&$collection, $data, $type, $prefix, $timezone)
@@ -347,7 +389,6 @@ class AdminController extends Controller
 
     public function kirimRespon(Request $request)
     {
-        // Set timezone di awal proses simpan
         date_default_timezone_set('Asia/Jakarta');
 
         $request->validate([
@@ -361,19 +402,16 @@ class AdminController extends Controller
             $model = $this->getModelByType($request->type, $request->laporan_id);
             $tableName = $model->getTable();
 
-            // LOGIC FIX: Cegah double response jika status sudah selesai atau ditolak
             if (Schema::hasColumn($tableName, 'status')) {
                 if ($model->status === 'selesai' || $model->status === 'ditolak') {
                     return redirect()->back()->withErrors(['error' => 'Laporan ini sudah diproses sebelumnya dan tidak dapat diubah.']);
                 }
             } elseif (!empty($model->tanggapan_admin)) {
-                // Fallback jika kolom status tidak ada tapi tanggapan sudah terisi
                 return redirect()->back()->withErrors(['error' => 'Laporan ini sudah memiliki tanggapan admin.']);
             }
 
             $model->tanggapan_admin = $request->admin_note;
 
-            // Memastikan kolom updated_at manual atau otomatis menggunakan waktu Jakarta
             if (Schema::hasColumn($tableName, 'updated_at')) {
                 $model->updated_at = Carbon::now('Asia/Jakarta');
             }
@@ -394,7 +432,14 @@ class AdminController extends Controller
             DB::commit();
 
             // --- TRIGGER REAL-TIME EVENT ---
-            event(new LaporanUpdated("Laporan " . $request->type . " direspon oleh " . Auth::user()->name));
+            event(new LaporanUpdated([
+                'id' => $model->id,
+                'type' => $request->type,
+                'action' => 'updated',
+                'status' => 'selesai',
+                'is_rejected' => false,
+                'tanggapan_admin' => $request->admin_note
+            ]));
 
             $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Respon ' . ucfirst($request->type) . ' berhasil dikirim!');
@@ -406,7 +451,6 @@ class AdminController extends Controller
 
     public function tolakLaporan(Request $request, $id)
     {
-        // Set timezone di awal proses simpan
         date_default_timezone_set('Asia/Jakarta');
 
         $request->validate([
@@ -419,14 +463,14 @@ class AdminController extends Controller
             $model = $this->getModelByType($request->type, $id);
             $tableName = $model->getTable();
 
-            // LOGIC FIX: Cegah double response jika status sudah selesai atau ditolak
             if (Schema::hasColumn($tableName, 'status')) {
                 if ($model->status === 'selesai' || $model->status === 'ditolak') {
                     return redirect()->back()->withErrors(['error' => 'Laporan ini sudah diproses dan tidak dapat ditolak lagi.']);
                 }
             }
 
-            $model->tanggapan_admin = $request->admin_note ?? 'Laporan ditolak karena data tidak sesuai kriteria.';
+            $finalNote = $request->admin_note ?? 'Laporan ditolak karena data tidak sesuai kriteria.';
+            $model->tanggapan_admin = $finalNote;
 
             if (Schema::hasColumn($tableName, 'updated_at')) {
                 $model->updated_at = Carbon::now('Asia/Jakarta');
@@ -448,7 +492,14 @@ class AdminController extends Controller
             DB::commit();
 
             // --- TRIGGER REAL-TIME EVENT ---
-            event(new LaporanUpdated("Laporan " . $request->type . " ditolak oleh " . Auth::user()->name));
+            event(new LaporanUpdated([
+                'id' => $model->id,
+                'type' => $request->type,
+                'action' => 'updated',
+                'status' => 'ditolak',
+                'is_rejected' => true,
+                'tanggapan_admin' => $finalNote
+            ]));
 
             $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan ' . ucfirst($request->type) . ' telah ditolak.');
@@ -485,12 +536,18 @@ class AdminController extends Controller
                 }
             }
 
+            // Simpan type untuk event sebelum delete
+            $reportType = $request->type;
             $model->delete();
 
-            // --- TRIGGER REAL-TIME EVENT ---
-            event(new LaporanUpdated("Laporan dihapus oleh admin"));
+            // --- TRIGGER REAL-TIME EVENT ACTION DELETED ---
+            event(new LaporanUpdated([
+                'id' => $id,
+                'type' => $reportType,
+                'action' => 'deleted'
+            ]));
 
-            $tabRedirect = ($request->type == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
+            $tabRedirect = ($reportType == 'updatedata') ? 'laporan_update_data' : 'laporan_sistem';
             return redirect()->route('admin.index', ['tab' => $tabRedirect])->with('success', 'Laporan berhasil dihapus.');
         } catch (\Exception $e) {
             return redirect()->back()->withErrors(['error' => 'Gagal menghapus laporan: ' . $e->getMessage()]);
@@ -530,8 +587,7 @@ class AdminController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
-        
-        // Validasi data
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'pin' => 'required|string|max:10',
@@ -542,13 +598,11 @@ class AdminController extends Controller
         ]);
 
         try {
-            // Cek agar admin tidak mengubah role dirinya sendiri secara tidak sengaja
             if ($user->id === auth()->id() && $validated['role'] === 'user') {
                 return redirect()->route('admin.index', ['tab' => 'data_user'])
                     ->withErrors(['error' => 'Anda tidak bisa menurunkan role Anda sendiri menjadi User!']);
             }
 
-            // Siapkan data untuk diupdate
             $updateData = [
                 'name' => $validated['name'],
                 'pin' => $validated['pin'],
@@ -557,8 +611,6 @@ class AdminController extends Controller
                 'email' => $validated['email'] ?? $user->email,
             ];
 
-            // LOGIKA KRUSIAL: Hanya tambahkan password ke array update jika diisi
-            // Ini akan mencegah password lama tertimpa jika input dikosongkan
             if ($request->filled('password')) {
                 $updateData['password'] = Hash::make($request->password);
             }
@@ -567,7 +619,6 @@ class AdminController extends Controller
 
             return redirect()->route('admin.index', ['tab' => 'data_user'])
                 ->with('success', 'Data user berhasil diperbarui.');
-
         } catch (\Exception $e) {
             return redirect()->route('admin.index', ['tab' => 'data_user'])
                 ->withErrors(['error' => 'Gagal memperbarui data user: ' . $e->getMessage()]);
@@ -636,9 +687,6 @@ class AdminController extends Controller
         ];
     }
 
-    /**
-     * FUNGSI PERBAIKAN: Routing Export Berdasarkan Fitur
-     */
     public function exportAktivasi(Request $request)
     {
         $request->merge(['type' => 'aktivasi']);
@@ -669,7 +717,6 @@ class AdminController extends Controller
         $kecamatanFilter = $request->query('kecamatan');
         $kategoriFilter = $request->query('kategori');
 
-        // Tentukan Query dasar berdasarkan mode
         $queries = match ($mode) {
             'updatedata' => ['UPDATE DATA' => UpdateData::with('user')],
             'aktivasi' => [
@@ -694,29 +741,24 @@ class AdminController extends Controller
         $allLaporans = collect();
         foreach ($queries as $label => $query) {
             foreach ($query->get() as $item) {
-                // Gunakan label asli dari switch match sebagai 'fitur'
                 $allLaporans->push($this->formatExportRow($item, $label, $timezone));
             }
         }
 
-        // --- FILTERING COLLECTION ---
-
         if ($monthFilter && $monthFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn($i) => $i['tanggal']->format('m') == $monthFilter);
+            $allLaporans = $allLaporans->filter(fn ($i) => $i['tanggal']->format('m') == $monthFilter);
         }
 
         if ($statusFilter && $statusFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['status']) == strtolower($statusFilter));
+            $allLaporans = $allLaporans->filter(fn ($i) => strtolower($i['status']) == strtolower($statusFilter));
         }
 
         if ($kecamatanFilter && $kecamatanFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['wilayah']) === strtolower($kecamatanFilter));
+            $allLaporans = $allLaporans->filter(fn ($i) => strtolower($i['wilayah']) === strtolower($kecamatanFilter));
         }
 
-        // Perbaikan filter kategori agar mendeteksi 'LUAR DAERAH' (dengan spasi)
         if ($kategoriFilter && $kategoriFilter !== '') {
             $allLaporans = $allLaporans->filter(function ($i) use ($kategoriFilter) {
-                // Menghapus spasi dan membandingkan secara case-insensitive
                 $cleanFitur = str_replace(' ', '', strtolower($i['fitur']));
                 $cleanKategori = str_replace([' ', '_'], '', strtolower($kategoriFilter));
                 return $cleanFitur === $cleanKategori;
@@ -742,7 +784,7 @@ class AdminController extends Controller
                     $row['sub_kategori'],
                     $row['pelapor'],
                     $row['wilayah'],
-                    "'" . $row['nik_target'],
+                    $row['nik_target'],
                     $row['alasan'],
                     $row['status'],
                     $row['tanggapan'],
@@ -755,7 +797,8 @@ class AdminController extends Controller
             "Content-type" => "text/csv",
             "Content-Disposition" => "attachment; filename=$filename",
             "Pragma" => "no-cache",
-            "Expires" => "0",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
         ]);
     }
 }

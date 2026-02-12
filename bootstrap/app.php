@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Tambahkan baris alias ini untuk mendaftarkan middleware 'role'
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'admin' => \App\Http\Middleware\RoleMiddleware::class,
             'checkStatus' => \App\Http\Middleware\CheckAccountStatus::class,
         ]);
 

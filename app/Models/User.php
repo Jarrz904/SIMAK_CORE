@@ -5,32 +5,46 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // Import ini
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
     /**
+     * KONFIGURASI PRIMARY KEY
+     * Menjadikan NIK sebagai PK utama menggantikan ID
+     */
+    protected $primaryKey = 'nik';      // Set PK ke kolom NIK
+    public $incrementing = false;       // Matikan auto-increment karena NIK adalah string
+    protected $keyType = 'string';      // Beritahu Eloquent bahwa PK bertipe string
+
+    /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'nik',          // Pastikan NIK masuk dalam fillable
         'name',
         'email',
         'password',
-        'nik',
         'pin',
         'location',     // Tetap ada untuk backup data teks lama
-        'kecamatan_id', // TAMBAHKAN INI: Agar terhubung ke tabel kecamatans
+        'kecamatan_id', // Agar terhubung ke tabel kecamatans
         'role',
         'is_active',
     ];
 
+    /**
+     * The attributes that should be hidden for serialization.
+     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+    /**
+     * The attributes that should be cast.
+     */
     protected function casts(): array
     {
         return [
