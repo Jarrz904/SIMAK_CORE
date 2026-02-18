@@ -214,9 +214,9 @@ class AdminController extends Controller
             'troubleCategories',
             'currentTab'
         ))->with([
-            'laporans' => $sortedLaporans,
-            'update_datas' => $updateDatas
-        ]);
+                    'laporans' => $sortedLaporans,
+                    'update_datas' => $updateDatas
+                ]);
     }
 
     /**
@@ -726,15 +726,12 @@ class AdminController extends Controller
             'trouble' => ['TROUBLE' => Trouble::with('user')],
             'pengajuan' => ['SIAK' => Pengajuan::with('user')],
             'proxy' => ['PROXY' => Proxy::with('user')],
-            'pembubuhan' => ['TTE' => Pembubuhan::with('user')],
+            'pembubuhan' => ['Pembubuhan' => Pembubuhan::with('user')],
             default => [
                 'TROUBLE' => Trouble::with('user'),
                 'SIAK' => Pengajuan::with('user'),
                 'PROXY' => Proxy::with('user'),
-                'TTE' => Pembubuhan::with('user'),
-                'AKTIVASI' => Aktivasi::with('user'),
-                'LUAR DAERAH' => LuarDaerah::with('user'),
-                'UPDATE DATA' => UpdateData::with('user'),
+                'Pembubuhan' => Pembubuhan::with('user'),
             ],
         };
 
@@ -746,15 +743,15 @@ class AdminController extends Controller
         }
 
         if ($monthFilter && $monthFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn ($i) => $i['tanggal']->format('m') == $monthFilter);
+            $allLaporans = $allLaporans->filter(fn($i) => $i['tanggal']->format('m') == $monthFilter);
         }
 
         if ($statusFilter && $statusFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn ($i) => strtolower($i['status']) == strtolower($statusFilter));
+            $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['status']) == strtolower($statusFilter));
         }
 
         if ($kecamatanFilter && $kecamatanFilter !== '') {
-            $allLaporans = $allLaporans->filter(fn ($i) => strtolower($i['wilayah']) === strtolower($kecamatanFilter));
+            $allLaporans = $allLaporans->filter(fn($i) => strtolower($i['wilayah']) === strtolower($kecamatanFilter));
         }
 
         if ($kategoriFilter && $kategoriFilter !== '') {
@@ -767,10 +764,10 @@ class AdminController extends Controller
 
         $sortedExport = $allLaporans->sortBy('tanggal')->values();
 
-        $fileLabel = $mode ?: 'sistem_terpadu';
+        $fileLabel = $mode ?: 'sistem';
         $filename = "rekap_" . $fileLabel . "_" . $nowJakarta->format('Ymd_His') . ".csv";
 
-        $header = ['NO', 'FITUR UTAMA', 'JENIS/KATEGORI', 'PELAPOR', 'WILAYAH', 'NIK/TARGET', 'DESKRIPSI/ALASAN', 'STATUS', 'TANGGAPAN ADMIN', 'PROSES OLEH', 'TANGGAL'];
+        $header = ['NO', 'FITUR UTAMA', 'JENIS/KATEGORI', 'PELAPOR', 'WILAYAH', 'NIK PEMOHON', 'DESKRIPSI/ALASAN', 'STATUS', 'TANGGAPAN ADMIN', 'DI PROSES OLEH', 'TANGGAL'];
 
         return response()->stream(function () use ($sortedExport, $header) {
             $file = fopen('php://output', 'w');

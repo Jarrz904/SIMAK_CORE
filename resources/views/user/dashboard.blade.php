@@ -1447,7 +1447,6 @@
                                     <option value="PERUBAHAN AGAMA">PERUBAHAN AGAMA</option>
                                     <option value="PERUBAHAN JENIS KELAMIN">PERUBAHAN JENIS KELAMIN</option>
                                     <option value="PERUBAHAN GOLONGAN DARAH">PERUBAHAN GOLONGAN DARAH</option>
-                                    <option value="PERUBAHAN ALAMAT">PERUBAHAN ALAMAT</option>
                                 </select>
                             </div>
 
