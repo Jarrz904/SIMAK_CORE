@@ -112,7 +112,7 @@ Route::middleware(['auth', 'checkStatus'])->group(function () {
     Route::middleware('role:user')->group(function () {
         // Halaman utama user
         Route::get('/user/dashboard', [UserController::class, 'index'])->name('user.dashboard');
-
+Route::put('/user/profile/update', [UserController::class, 'updateProfil'])->name('user.updateProfil');
         /**
          * PERBAIKAN UNTUK DASHBOARD TUNGGAL:
          * 1. Route GET profile diarahkan kembali ke dashboard agar tidak error 404.

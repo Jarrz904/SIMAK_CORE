@@ -13,23 +13,25 @@ class User extends Authenticatable
 
     /**
      * KONFIGURASI PRIMARY KEY
-     * Menjadikan NIK sebagai PK utama menggantikan ID
+     * DIKEMBALIKAN KE 'id' agar relasi database (Foreign Key) tidak pecah.
+     * Laravel akan tetap bisa login menggunakan NIK melalui controller Auth.
      */
-    protected $primaryKey = 'nik';      // Set PK ke kolom NIK
-    public $incrementing = false;       // Matikan auto-increment karena NIK adalah string
-    protected $keyType = 'string';      // Beritahu Eloquent bahwa PK bertipe string
+    protected $primaryKey = 'id';       // Gunakan id (bigint) sebagai PK utama
+    public $incrementing = true;        // Aktifkan auto-increment
+    protected $keyType = 'int';         // Tipe data ID adalah integer
 
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
-        'nik',          // Pastikan NIK masuk dalam fillable
+        'id',           // Izinkan ID jika diperlukan
+        'nik',          // NIK tetap disimpan sebagai identitas unik
         'name',
         'email',
         'password',
         'pin',
-        'location',     // Tetap ada untuk backup data teks lama
-        'kecamatan_id', // Agar terhubung ke tabel kecamatans
+        'location',     
+        'kecamatan_id', 
         'role',
         'is_active',
     ];
@@ -64,7 +66,6 @@ class User extends Authenticatable
 
     /**
      * Helper untuk mendapatkan nama lokasi
-     * Jika kecamatan_id kosong, akan mengambil dari field location (teks)
      */
     public function getFullLocationAttribute()
     {
